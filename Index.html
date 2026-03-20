@@ -1,0 +1,921 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Inventory — เบิกสินค้า</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0d0f14;
+    --surface: #151820;
+    --surface2: #1c2130;
+    --border: #252c3d;
+    --border2: #2e3850;
+    --accent: #3b82f6;
+    --accent2: #f59e0b;
+    --urgent: #ef4444;
+    --success: #22c55e;
+    --text: #e2e8f0;
+    --text2: #94a3b8;
+    --text3: #4b5568;
+    --mono: 'IBM Plex Mono', monospace;
+    --sans: 'IBM Plex Sans Thai', sans-serif;
+    --radius: 8px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: var(--sans); background: var(--bg); color: var(--text); min-height: 100vh; }
+
+  /* NAV */
+  nav {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 0 24px;
+    height: 52px;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    position: sticky; top: 0; z-index: 100;
+  }
+  .nav-logo { font-family: var(--mono); font-size: 15px; font-weight: 500; color: var(--accent); margin-right: 20px; letter-spacing: -0.5px; }
+  .nav-btn {
+    background: none; border: none; color: var(--text2); font-family: var(--sans);
+    font-size: 13px; padding: 6px 14px; border-radius: 6px; cursor: pointer;
+    display: flex; align-items: center; gap: 6px; transition: all .15s;
+  }
+  .nav-btn:hover { color: var(--text); background: var(--surface2); }
+  .nav-btn.active { color: var(--accent); background: rgba(59,130,246,.12); }
+  .nav-spacer { flex: 1; }
+  .nav-user { font-size: 12px; color: var(--text3); font-family: var(--mono); }
+
+  /* LAYOUT */
+  .page { display: none; }
+  .page.active { display: block; }
+  .container { max-width: 720px; margin: 0 auto; padding: 32px 16px; }
+
+  /* CARDS */
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 20px;
+    margin-bottom: 12px;
+  }
+  .card-title { font-size: 11px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--text3); margin-bottom: 14px; }
+
+  /* PAGE HEADER */
+  .page-header { margin-bottom: 28px; }
+  .page-header h1 { font-size: 26px; font-weight: 600; letter-spacing: -0.5px; }
+  .page-header p { color: var(--text2); font-size: 13px; margin-top: 4px; }
+
+  /* FORM ELEMENTS */
+  label { font-size: 13px; color: var(--text2); display: block; margin-bottom: 6px; }
+  input[type=text], input[type=number] {
+    width: 100%; background: var(--bg); border: 1px solid var(--border2);
+    border-radius: var(--radius); padding: 10px 12px; color: var(--text);
+    font-family: var(--sans); font-size: 14px; outline: none; transition: border-color .15s;
+  }
+  input:focus { border-color: var(--accent); }
+  .field { margin-bottom: 16px; position: relative; }
+
+  /* DROPDOWN */
+  .dropdown-wrap { position: relative; }
+  .dropdown-list {
+    display: none; position: absolute; top: calc(100% + 4px); left: 0; right: 0;
+    background: var(--surface2); border: 1px solid var(--border2); border-radius: var(--radius);
+    z-index: 50; max-height: 200px; overflow-y: auto;
+  }
+  .dropdown-list.open { display: block; }
+  .dropdown-item {
+    padding: 10px 12px; cursor: pointer; font-size: 13px;
+    display: flex; justify-content: space-between; align-items: center;
+    border-bottom: 1px solid var(--border);
+  }
+  .dropdown-item:last-child { border-bottom: none; }
+  .dropdown-item:hover { background: var(--border); }
+  .dropdown-item .sku-code { font-family: var(--mono); font-size: 12px; color: var(--accent); }
+  .dropdown-item .sku-name { color: var(--text2); font-size: 12px; }
+
+  /* TOGGLE */
+  .toggle-group { display: flex; gap: 8px; }
+  .toggle-btn {
+    flex: 1; background: var(--bg); border: 1px solid var(--border2);
+    border-radius: var(--radius); padding: 10px; color: var(--text2);
+    font-family: var(--sans); font-size: 13px; cursor: pointer; transition: all .15s;
+    display: flex; align-items: center; justify-content: center; gap: 6px;
+  }
+  .toggle-btn.active { border-color: var(--accent); color: var(--accent); background: rgba(59,130,246,.08); }
+  .toggle-btn.urgent.active { border-color: var(--urgent); color: var(--urgent); background: rgba(239,68,68,.08); }
+
+  /* BUTTONS */
+  .btn {
+    width: 100%; padding: 12px; border-radius: var(--radius); border: none;
+    font-family: var(--sans); font-size: 14px; font-weight: 500; cursor: pointer;
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+    transition: all .15s;
+  }
+  .btn-primary { background: var(--accent); color: #fff; }
+  .btn-primary:hover { background: #2563eb; }
+  .btn-secondary { background: var(--surface2); color: var(--text2); border: 1px solid var(--border2); }
+  .btn-secondary:hover { color: var(--text); border-color: var(--border2); }
+  .btn-success { background: var(--success); color: #fff; }
+  .btn-success:hover { background: #16a34a; }
+  .btn-sm {
+    padding: 6px 12px; font-size: 12px; border-radius: 6px; border: none;
+    cursor: pointer; font-family: var(--sans); font-weight: 500; transition: all .15s;
+    display: inline-flex; align-items: center; gap: 5px;
+  }
+  .btn-sm.done { background: var(--success); color: #fff; }
+  .btn-sm.done:hover { background: #16a34a; }
+
+  /* SCAN */
+  .scan-card { cursor: pointer; border: 1px dashed var(--border2); background: var(--bg); text-align: center; padding: 22px; transition: all .2s; }
+  .scan-card:hover { border-color: var(--accent); background: rgba(59,130,246,.04); }
+  .scan-icon { font-size: 28px; margin-bottom: 6px; }
+  .scan-label { font-size: 13px; color: var(--text2); }
+  #scanner-wrap { display: none; margin-top: 10px; }
+  #scanner-wrap video { width: 100%; border-radius: 6px; }
+
+  /* IMPORT */
+  .import-area {
+    border: 1px dashed var(--border2); border-radius: var(--radius); padding: 14px 16px;
+    display: flex; align-items: center; gap: 10px; cursor: pointer; transition: all .15s;
+  }
+  .import-area:hover { border-color: var(--accent); }
+  .import-area input { display: none; }
+  .import-label { font-size: 12px; color: var(--text2); }
+
+  /* BADGE */
+  .badge {
+    display: inline-flex; align-items: center; gap: 4px;
+    padding: 2px 8px; border-radius: 99px; font-size: 11px; font-weight: 500;
+  }
+  .badge.urgent { background: rgba(239,68,68,.15); color: #f87171; }
+  .badge.normal { background: rgba(59,130,246,.12); color: #60a5fa; }
+
+  /* PICK LIST TABLE */
+  .picklist-toolbar {
+    display: flex; gap: 8px; margin-bottom: 14px; flex-wrap: wrap; align-items: center;
+  }
+  .sort-btn {
+    background: var(--surface2); border: 1px solid var(--border2); color: var(--text2);
+    border-radius: 6px; padding: 6px 12px; font-size: 12px; cursor: pointer;
+    font-family: var(--sans); display: flex; align-items: center; gap: 5px; transition: all .15s;
+  }
+  .sort-btn:hover { color: var(--text); }
+  .sort-btn.active { border-color: var(--accent); color: var(--accent); }
+  .sort-arrow { font-size: 10px; }
+
+  .pick-item {
+    background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+    padding: 14px 16px; margin-bottom: 8px;
+    display: flex; align-items: flex-start; gap: 12px; transition: all .2s;
+  }
+  .pick-item.urgent-item { border-left: 3px solid var(--urgent); }
+  .pick-item-info { flex: 1; }
+  .pick-sku { font-family: var(--mono); font-size: 13px; color: var(--accent); font-weight: 500; }
+  .pick-name { font-size: 14px; margin: 2px 0 6px; }
+  .pick-dims { font-size: 11px; color: var(--text2); font-family: var(--mono); }
+  .pick-dims span { background: var(--bg); border: 1px solid var(--border); padding: 2px 6px; border-radius: 4px; margin-right: 4px; }
+  .pick-qty { font-size: 12px; color: var(--text2); margin-top: 4px; }
+  .pick-vol { font-size: 11px; color: var(--text3); font-family: var(--mono); }
+
+  /* HISTORY */
+  .history-item {
+    background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+    padding: 12px 16px; margin-bottom: 6px; display: flex; align-items: center; gap: 12px;
+    opacity: .75;
+  }
+  .history-info { flex: 1; }
+  .history-sku { font-family: var(--mono); font-size: 12px; color: var(--text3); }
+  .history-name { font-size: 13px; color: var(--text2); }
+  .history-time { font-size: 11px; color: var(--text3); font-family: var(--mono); }
+  .done-icon { color: var(--success); font-size: 16px; }
+
+  /* PRODUCTS TABLE */
+  .products-toolbar { display: flex; gap: 8px; margin-bottom: 14px; }
+  .search-input { flex: 1; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th { text-align: left; padding: 8px 10px; color: var(--text3); font-size: 11px; letter-spacing: .06em; text-transform: uppercase; border-bottom: 1px solid var(--border); }
+  td { padding: 10px 10px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: var(--surface2); }
+  .td-sku { font-family: var(--mono); color: var(--accent); font-size: 12px; }
+  .td-dim { font-family: var(--mono); font-size: 12px; color: var(--text2); }
+
+  /* EMPTY */
+  .empty { text-align: center; padding: 40px 20px; color: var(--text3); font-size: 13px; }
+  .empty-icon { font-size: 32px; margin-bottom: 8px; }
+
+  /* TOAST */
+  #toast {
+    position: fixed; bottom: 24px; right: 24px; z-index: 999;
+    background: var(--surface2); border: 1px solid var(--border2); border-radius: var(--radius);
+    padding: 12px 18px; font-size: 13px; display: none;
+    animation: fadeIn .2s ease;
+  }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+
+  /* DASHBOARD */
+  .stats-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 16px; }
+  .stat-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; }
+  .stat-num { font-size: 28px; font-weight: 600; font-family: var(--mono); }
+  .stat-label { font-size: 11px; color: var(--text3); margin-top: 2px; text-transform: uppercase; letter-spacing: .06em; }
+  .stat-card.urgent-stat .stat-num { color: var(--urgent); }
+  .stat-card.pending-stat .stat-num { color: var(--accent2); }
+  .stat-card.done-stat .stat-num { color: var(--success); }
+
+  @media(max-width: 480px) {
+    .stats-grid { grid-template-columns: 1fr 1fr; }
+    nav { overflow-x: auto; }
+    .picklist-toolbar { gap: 6px; }
+  }
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="nav-logo">▦ Inventory</div>
+  <button class="nav-btn" onclick="showPage('dashboard')">📊 Dashboard</button>
+  <button class="nav-btn" onclick="showPage('history')">🕐 History</button>
+  <button class="nav-btn" onclick="showPage('picklist')">📋 Pick List</button>
+  <button class="nav-btn active" onclick="showPage('checkout')">⬆ Checkout</button>
+  <button class="nav-btn" onclick="showPage('products')">📦 Products</button>
+  <div class="nav-spacer"></div>
+  <span class="nav-user">owena.ecochang</span>
+</nav>
+
+<!-- CHECKOUT PAGE -->
+<div id="page-checkout" class="page active">
+  <div class="container">
+    <div class="page-header">
+      <h1>Checkout</h1>
+      <p>สแกนหรือกรอก SKU เพื่อเบิกสินค้า</p>
+    </div>
+
+    <!-- SCAN -->
+    <div class="card">
+      <div class="card-title">📷 สแกน Barcode / QR Code</div>
+      <div class="scan-card" onclick="toggleScanner()">
+        <div class="scan-icon">⬛</div>
+        <div class="scan-label" id="scan-label">แตะเพื่อเปิดกล้องสแกน Barcode / QR Code</div>
+      </div>
+      <div id="scanner-wrap">
+        <video id="scanner-video" autoplay playsinline></video>
+        <button class="btn btn-secondary" style="margin-top:8px" onclick="stopScanner()">✕ ปิดกล้อง</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">📝 ข้อมูลการเบิก</div>
+
+      <div class="field">
+        <label>SKU Code</label>
+        <div class="dropdown-wrap">
+          <input type="text" id="sku-input" placeholder="พิมพ์หรือสแกน SKU..." oninput="filterSKU()" onblur="closeDropdownDelay()">
+          <div class="dropdown-list" id="sku-dropdown"></div>
+        </div>
+      </div>
+
+      <div class="field" id="selected-info" style="display:none">
+        <div style="background:var(--bg); border:1px solid var(--border); border-radius:var(--radius); padding:10px 12px;">
+          <div id="sel-name" style="font-size:14px; margin-bottom:4px"></div>
+          <div id="sel-dims" style="font-family:var(--mono); font-size:12px; color:var(--text2)"></div>
+        </div>
+      </div>
+
+      <div class="field">
+        <label>ประเภทการเบิก</label>
+        <div class="toggle-group">
+          <button class="toggle-btn active" id="type-normal" onclick="setType('normal')">🔄 ปกติ</button>
+          <button class="toggle-btn urgent" id="type-urgent" onclick="setType('urgent')">⚡ ด่วน</button>
+        </div>
+      </div>
+
+      <div class="field">
+        <label>จำนวน</label>
+        <input type="number" id="qty-input" value="1" min="1">
+      </div>
+
+      <button class="btn btn-primary" onclick="addToPickList()">
+        ✈ ยืนยันเบิกสินค้า
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- PICK LIST PAGE -->
+<div id="page-picklist" class="page">
+  <div class="container">
+    <div class="page-header">
+      <h1>Pick List</h1>
+      <p>สินค้าที่รอเบิก — เรียงตามขนาดกล่องเพื่อจัดรถ</p>
+    </div>
+    <div class="picklist-toolbar">
+      <button class="sort-btn active" id="sort-vol" onclick="sortList('volume')">📦 Volume <span class="sort-arrow" id="arr-vol">↓</span></button>
+      <button class="sort-btn" id="sort-type" onclick="sortList('type')">⚡ ด่วนก่อน</button>
+      <button class="sort-btn" id="sort-sku" onclick="sortList('sku')">🔤 SKU <span class="sort-arrow" id="arr-sku"></span></button>
+      <button class="sort-btn" id="sort-time" onclick="sortList('time')">🕐 เวลา <span class="sort-arrow" id="arr-time"></span></button>
+    </div>
+    <div id="picklist-container"></div>
+  </div>
+</div>
+
+<!-- HISTORY PAGE -->
+<div id="page-history" class="page">
+  <div class="container">
+    <div class="page-header">
+      <h1>History</h1>
+      <p>รายการที่เบิกแล้ว</p>
+    </div>
+    <div id="history-container"></div>
+  </div>
+</div>
+
+<!-- PRODUCTS PAGE -->
+<div id="page-products" class="page">
+  <div class="container">
+    <div class="page-header">
+      <h1>Products</h1>
+      <p>ข้อมูลสินค้าทั้งหมด</p>
+    </div>
+    <div class="card" style="margin-bottom:16px">
+      <div class="card-title">📂 นำเข้าข้อมูลสินค้า (Excel)</div>
+
+      <!-- Download template -->
+      <div style="display:flex; align-items:center; justify-content:space-between; background:var(--bg); border:1px solid var(--border); border-radius:var(--radius); padding:10px 14px; margin-bottom:12px;">
+        <div>
+          <div style="font-size:13px; color:var(--text); margin-bottom:2px">📥 ดาวน์โหลดแบบฟอร์มตัวอย่าง</div>
+          <div style="font-size:11px; color:var(--text3)">ไฟล์ CSV — คอลัมน์: sku, name, length, width, height</div>
+        </div>
+        <button onclick="downloadTemplate()" style="background:var(--surface2); border:1px solid var(--border2); color:var(--text2); border-radius:6px; padding:7px 14px; font-size:12px; cursor:pointer; font-family:var(--sans); white-space:nowrap; transition:all .15s" onmouseover="this.style.color='var(--text)'" onmouseout="this.style.color='var(--text2)'">⬇ Download</button>
+      </div>
+
+      <!-- Import mode toggle -->
+      <div style="margin-bottom:10px">
+        <div style="font-size:12px; color:var(--text3); margin-bottom:6px">โหมดการนำเข้า</div>
+        <div style="display:flex; gap:8px">
+          <button class="toggle-btn active" id="mode-append" onclick="setImportMode('append')" style="font-size:12px; padding:7px 12px">➕ เพิ่มเข้าไป</button>
+          <button class="toggle-btn" id="mode-replace" onclick="setImportMode('replace')" style="font-size:12px; padding:7px 12px">🔄 แทนที่ทั้งหมด</button>
+        </div>
+        <div id="mode-desc" style="font-size:11px; color:var(--text3); margin-top:5px">ข้อมูลใหม่จะถูกเพิ่มเข้าไป — SKU ที่ซ้ำจะถูก update</div>
+      </div>
+
+      <!-- File input -->
+      <label class="import-area" for="excel-import">
+        <input type="file" id="excel-import" accept=".xlsx,.xls,.csv" onchange="importExcel(this)">
+        <span style="font-size:20px">📄</span>
+        <div>
+          <div style="font-size:13px; color:var(--text)">เลือกไฟล์ Excel / CSV</div>
+          <div class="import-label">รองรับ .xlsx, .xls, .csv</div>
+        </div>
+      </label>
+      <div id="import-status" style="font-size:12px; color:var(--success); margin-top:8px; display:none"></div>
+    </div>
+    <div class="products-toolbar">
+      <input type="text" class="search-input" id="product-search" placeholder="ค้นหา SKU หรือชื่อสินค้า..." oninput="renderProducts()">
+    </div>
+
+    <!-- Delete toolbar (shows when selected) -->
+    <div id="delete-toolbar" style="display:none; background:rgba(239,68,68,.08); border:1px solid rgba(239,68,68,.3); border-radius:var(--radius); padding:10px 14px; margin-bottom:10px; display:none; align-items:center; justify-content:space-between;">
+      <span id="selected-count" style="font-size:13px; color:#f87171"></span>
+      <div style="display:flex; gap:8px">
+        <button onclick="clearSelection()" style="background:var(--surface2); border:1px solid var(--border2); color:var(--text2); border-radius:6px; padding:6px 12px; font-size:12px; cursor:pointer; font-family:var(--sans)">ยกเลิก</button>
+        <button onclick="deleteSelected()" style="background:var(--urgent); border:none; color:#fff; border-radius:6px; padding:6px 14px; font-size:12px; cursor:pointer; font-family:var(--sans); font-weight:500">🗑 ลบที่เลือก</button>
+      </div>
+    </div>
+
+    <div class="card" style="padding:0; overflow:hidden">
+      <table id="products-table">
+        <thead>
+          <tr>
+            <th style="width:36px; padding-left:14px"><input type="checkbox" id="check-all" onchange="toggleAll(this)" style="cursor:pointer; accent-color:var(--accent)"></th>
+            <th>SKU</th>
+            <th>ชื่อสินค้า</th>
+            <th>ยาว (cm)</th>
+            <th>กว้าง (cm)</th>
+            <th>สูง (cm)</th>
+            <th>Volume (cm³)</th>
+          </tr>
+        </thead>
+        <tbody id="products-tbody"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- DASHBOARD PAGE -->
+<div id="page-dashboard" class="page">
+  <div class="container">
+    <div class="page-header">
+      <h1>Dashboard</h1>
+      <p>ภาพรวมการเบิกสินค้า</p>
+    </div>
+    <div class="stats-grid">
+      <div class="stat-card pending-stat">
+        <div class="stat-num" id="stat-pending">0</div>
+        <div class="stat-label">รอเบิก</div>
+      </div>
+      <div class="stat-card urgent-stat">
+        <div class="stat-num" id="stat-urgent">0</div>
+        <div class="stat-label">ด่วน</div>
+      </div>
+      <div class="stat-card done-stat">
+        <div class="stat-num" id="stat-done">0</div>
+        <div class="stat-label">เบิกแล้ว</div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-title">รายการด่วน (รอดำเนินการ)</div>
+      <div id="dash-urgent-list"></div>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+<script>
+// ===== STATE =====
+const DEFAULT_PRODUCTS = [
+  { sku: 'SKU-001', name: 'กล่องกระดาษ A4', length: 32, width: 23, height: 5 },
+  { sku: 'SKU-002', name: 'หมึกปริ้นเตอร์ HP', length: 20, width: 15, height: 10 },
+  { sku: 'SKU-003', name: 'เก้าอี้สำนักงาน', length: 65, width: 65, height: 95 },
+  { sku: 'SKU-004', name: 'โต๊ะทำงาน 120cm', length: 120, width: 60, height: 75 },
+  { sku: 'SKU-005', name: 'คอมพิวเตอร์ AIO', length: 55, width: 20, height: 48 },
+  { sku: 'SKU-006', name: 'กระดาษ A4 500 แผ่น', length: 30, width: 22, height: 5 },
+];
+
+// ===== FIREBASE COMPAT SETUP =====
+const firebaseConfig = {
+  apiKey: "AIzaSyAhPiq83fh_I0JCMO6DmRMFcaws-t-F7DE",
+  authDomain: "withdrawecochang.firebaseapp.com",
+  projectId: "withdrawecochang",
+  storageBucket: "withdrawecochang.firebasestorage.app",
+  messagingSenderId: "384050513445",
+  appId: "1:384050513445:web:d78c8988518109317161cc"
+};
+firebase.initializeApp(firebaseConfig);
+const db = firebase.firestore();
+db.settings({ experimentalForceLongPolling: true, merge: true });
+
+const PRODUCTS_DOC = db.collection('inventory').doc('products');
+const PICKLIST_DOC = db.collection('inventory').doc('picklist');
+const HISTORY_DOC  = db.collection('inventory').doc('history');
+
+function toSafe(arr) {
+  return arr.map(i => ({
+    ...i,
+    time:     i.time     instanceof Date ? i.time.toISOString()     : (i.time || new Date().toISOString()),
+    doneTime: i.doneTime instanceof Date ? i.doneTime.toISOString() : (i.doneTime || null),
+  }));
+}
+function fromSafe(arr) {
+  return (arr || []).map(i => ({...i, time: new Date(i.time), doneTime: i.doneTime ? new Date(i.doneTime) : null}));
+}
+
+function saveProducts() { PRODUCTS_DOC.set({ items: products }).catch(e => console.error('saveProducts', e)); }
+function savePicklist() { PICKLIST_DOC.set({ items: toSafe(picklist) }).catch(e => console.error('savePicklist', e)); }
+function saveHistory()  { HISTORY_DOC.set({  items: toSafe(history)  }).catch(e => console.error('saveHistory', e)); }
+
+function showLoadingOverlay(show) {
+  let el = document.getElementById('loading-overlay');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'loading-overlay';
+    el.innerHTML = '<div style="text-align:center"><div style="font-size:28px;margin-bottom:10px">&#x1F504;</div><div style="font-size:14px;color:var(--text2)">กำลังโหลดข้อมูลจาก Firebase...</div></div>';
+    el.style.cssText = 'position:fixed;inset:0;background:rgba(13,15,20,.85);z-index:9999;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(4px)';
+    document.body.appendChild(el);
+  }
+  el.style.display = show ? 'flex' : 'none';
+}
+
+async function loadFromFirestore() {
+  showLoadingOverlay(true);
+  try {
+    const [pSnap, plSnap, hSnap] = await Promise.all([
+      PRODUCTS_DOC.get(), PICKLIST_DOC.get(), HISTORY_DOC.get()
+    ]);
+    if (pSnap.exists)  products = pSnap.data().items || DEFAULT_PRODUCTS;
+    else               { products = DEFAULT_PRODUCTS; saveProducts(); }
+    if (plSnap.exists) picklist = fromSafe(plSnap.data().items || []);
+    if (hSnap.exists)  history  = fromSafe(hSnap.data().items  || []);
+  } catch(e) {
+    console.error('Firebase load error:', e);
+    toast('⚠ โหลด Firebase ไม่ได้');
+  }
+  showLoadingOverlay(false);
+  renderProducts();
+  renderPickList();
+  renderDashboard();
+}
+
+// Realtime listeners
+PRODUCTS_DOC.onSnapshot(snap => {
+  if (!snap.exists) return;
+  products = snap.data().items || [];
+  renderProducts();
+});
+PICKLIST_DOC.onSnapshot(snap => {
+  if (!snap.exists) return;
+  picklist = fromSafe(snap.data().items || []);
+  renderPickList(); renderDashboard();
+});
+HISTORY_DOC.onSnapshot(snap => {
+  if (!snap.exists) return;
+  history = fromSafe(snap.data().items || []);
+  renderHistory(); renderDashboard();
+});
+
+let products = DEFAULT_PRODUCTS;
+let picklist = [];
+let history  = [];
+
+loadFromFirestore();
+let checkoutType = 'normal';
+let selectedSKU = null;
+let sortKey = 'volume';
+let sortDir = { volume: -1, sku: 1, time: -1, type: 1 };
+let scannerStream = null;
+
+// ===== NAV =====
+function showPage(name) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('page-' + name).classList.add('active');
+  event.target.closest('.nav-btn').classList.add('active');
+  if (name === 'picklist') renderPickList();
+  if (name === 'history') renderHistory();
+  if (name === 'products') renderProducts();
+  if (name === 'dashboard') renderDashboard();
+  stopScanner();
+}
+
+// ===== SCANNER =====
+function toggleScanner() {
+  const wrap = document.getElementById('scanner-wrap');
+  if (wrap.style.display === 'block') { stopScanner(); return; }
+  wrap.style.display = 'block';
+  document.getElementById('scan-label').textContent = 'กำลังเปิดกล้อง...';
+  navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } })
+    .then(stream => {
+      scannerStream = stream;
+      document.getElementById('scanner-video').srcObject = stream;
+      document.getElementById('scan-label').textContent = 'กล้องเปิดอยู่ — หันกล้องไปที่บาร์โค้ด';
+    })
+    .catch(() => {
+      toast('❌ ไม่สามารถเปิดกล้องได้ กรุณาอนุญาต Camera');
+      stopScanner();
+    });
+}
+function stopScanner() {
+  if (scannerStream) { scannerStream.getTracks().forEach(t => t.stop()); scannerStream = null; }
+  document.getElementById('scanner-wrap').style.display = 'none';
+  document.getElementById('scan-label').textContent = 'แตะเพื่อเปิดกล้องสแกน Barcode / QR Code';
+}
+
+// ===== IMPORT MODE =====
+let importMode = 'append';
+function setImportMode(mode) {
+  importMode = mode;
+  document.getElementById('mode-append').classList.toggle('active', mode === 'append');
+  document.getElementById('mode-replace').classList.toggle('active', mode === 'replace');
+  document.getElementById('mode-desc').textContent = mode === 'append'
+    ? 'ข้อมูลใหม่จะถูกเพิ่มเข้าไป — SKU ที่ซ้ำจะถูก update'
+    : '⚠ ข้อมูลสินค้าทั้งหมดจะถูกลบและแทนที่ด้วยไฟล์ใหม่';
+  document.getElementById('mode-desc').style.color = mode === 'replace' ? 'var(--urgent)' : 'var(--text3)';
+}
+
+// ===== DOWNLOAD TEMPLATE =====
+function downloadTemplate() {
+  const csv = [
+    'sku,name,length,width,height',
+    'SKU-001,ชื่อสินค้า A,30,20,10',
+    'SKU-002,ชื่อสินค้า B,50,40,30',
+  ].join('\n');
+  const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'product_template.csv';
+  a.click();
+}
+
+// ===== EXCEL IMPORT =====
+function importExcel(input) {
+  const file = input.files[0];
+  if (!file) return;
+
+  if (importMode === 'replace') {
+    if (!confirm(`⚠ แทนที่ทั้งหมด?\n\nข้อมูลสินค้าทั้งหมด ${products.length} รายการจะถูกลบและแทนที่ด้วยไฟล์ใหม่\n\nยืนยันหรือไม่?`)) {
+      input.value = '';
+      return;
+    }
+  }
+
+  const reader = new FileReader();
+  reader.onload = e => {
+    try {
+      const wb = XLSX.read(new Uint8Array(e.target.result), { type: 'array', sheetRows: 0, cellDates: true });
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      const rows = XLSX.utils.sheet_to_json(ws, { defval: '' });
+      let added = 0, updated = 0;
+
+      if (importMode === 'replace') {
+        products = [];
+      }
+
+      rows.forEach(row => {
+        const sku = (row.sku || row.SKU || row['SKU Code'] || '').toString().trim();
+        const name = (row.name || row.Name || row['ชื่อสินค้า'] || '').toString().trim();
+        if (!sku) return;
+        const existing = products.findIndex(p => p.sku === sku);
+        const item = {
+          sku,
+          name: name || sku,
+          length: parseFloat(row.length || row.Length || row['ยาว'] || 0),
+          width: parseFloat(row.width || row.Width || row['กว้าง'] || 0),
+          height: parseFloat(row.height || row.Height || row['สูง'] || 0),
+        };
+        if (existing >= 0) { products[existing] = item; updated++; }
+        else { products.push(item); added++; }
+      });
+
+      const status = document.getElementById('import-status');
+      status.style.display = 'block';
+      status.style.color = 'var(--success)';
+      status.textContent = importMode === 'replace'
+        ? `✓ แทนที่สำเร็จ — ${added} รายการ`
+        : `✓ เพิ่ม ${added} รายการใหม่, อัปเดต ${updated} รายการ`;
+      toast(importMode === 'replace' ? `✓ แทนที่ข้อมูล ${added} รายการ` : `✓ Import ${added + updated} รายการ`);
+      input.value = '';
+      saveProducts();
+      renderProducts();
+    } catch {
+      toast('❌ ไม่สามารถอ่านไฟล์ได้');
+    }
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+// ===== SKU DROPDOWN =====
+function filterSKU() {
+  const val = document.getElementById('sku-input').value.toLowerCase();
+  const dd = document.getElementById('sku-dropdown');
+  selectedSKU = null;
+  document.getElementById('selected-info').style.display = 'none';
+  if (!val) { dd.classList.remove('open'); return; }
+  const filtered = products.filter(p =>
+    p.sku.toLowerCase().includes(val) || p.name.toLowerCase().includes(val)
+  );
+  if (!filtered.length) { dd.classList.remove('open'); return; }
+  dd.innerHTML = filtered.slice(0, 8).map(p => `
+    <div class="dropdown-item" onmousedown="selectSKU('${p.sku}')">
+      <div>
+        <span class="sku-code">${p.sku}</span>
+        <div class="sku-name">${p.name}</div>
+      </div>
+      <div style="font-size:11px; color:var(--text3); font-family:var(--mono)">${p.length}×${p.width}×${p.height}</div>
+    </div>
+  `).join('');
+  dd.classList.add('open');
+}
+function selectSKU(sku) {
+  const p = products.find(x => x.sku === sku);
+  if (!p) return;
+  selectedSKU = p;
+  document.getElementById('sku-input').value = sku;
+  document.getElementById('sku-dropdown').classList.remove('open');
+  document.getElementById('sel-name').textContent = p.name;
+  document.getElementById('sel-dims').textContent = `📦 ยาว ${p.length} × กว้าง ${p.width} × สูง ${p.height} cm`;
+  document.getElementById('selected-info').style.display = 'block';
+}
+function closeDropdownDelay() { setTimeout(() => document.getElementById('sku-dropdown').classList.remove('open'), 200); }
+
+// ===== TYPE =====
+function setType(t) {
+  checkoutType = t;
+  document.getElementById('type-normal').classList.toggle('active', t === 'normal');
+  document.getElementById('type-urgent').classList.toggle('active', t === 'urgent');
+}
+
+// ===== ADD TO PICKLIST =====
+function addToPickList() {
+  const skuVal = document.getElementById('sku-input').value.trim();
+  const qty = parseInt(document.getElementById('qty-input').value) || 1;
+  let product = selectedSKU || products.find(p => p.sku === skuVal);
+  if (!product) {
+    if (!skuVal) { toast('⚠ กรุณากรอก SKU'); return; }
+    product = { sku: skuVal, name: skuVal, length: 0, width: 0, height: 0 };
+  }
+  picklist.push({
+    id: Date.now(),
+    sku: product.sku,
+    name: product.name,
+    length: product.length,
+    width: product.width,
+    height: product.height,
+    qty,
+    type: checkoutType,
+    time: new Date(),
+    volume: product.length * product.width * product.height
+  });
+  toast(`✓ เพิ่ม ${product.sku} (${qty} ชิ้น) ไปยัง Pick List`);
+  document.getElementById('sku-input').value = '';
+  document.getElementById('qty-input').value = 1;
+  document.getElementById('selected-info').style.display = 'none';
+  selectedSKU = null;
+  checkoutType = 'normal';
+  setType('normal');
+  savePicklist();
+  updateBadge();
+}
+
+// ===== SORT =====
+function sortList(key) {
+  if (sortKey === key) sortDir[key] *= -1;
+  sortKey = key;
+  document.querySelectorAll('.sort-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('sort-' + key).classList.add('active');
+  renderPickList();
+}
+function getSorted() {
+  return [...picklist].sort((a, b) => {
+    if (sortKey === 'volume') return (b.volume - a.volume) * sortDir.volume;
+    if (sortKey === 'sku') return a.sku.localeCompare(b.sku) * sortDir.sku;
+    if (sortKey === 'time') return (b.time - a.time) * sortDir.time;
+    if (sortKey === 'type') return (a.type === 'urgent' ? -1 : 1);
+    return 0;
+  });
+}
+
+// ===== RENDER PICKLIST =====
+function renderPickList() {
+  const container = document.getElementById('picklist-container');
+  if (!picklist.length) {
+    container.innerHTML = '<div class="empty"><div class="empty-icon">📋</div>ยังไม่มีรายการ</div>';
+    return;
+  }
+  const sorted = getSorted();
+  container.innerHTML = sorted.map(item => `
+    <div class="pick-item ${item.type === 'urgent' ? 'urgent-item' : ''}">
+      <div class="pick-item-info">
+        <div style="display:flex; align-items:center; gap:8px; margin-bottom:4px">
+          <span class="pick-sku">${item.sku}</span>
+          <span class="badge ${item.type}">${item.type === 'urgent' ? '⚡ ด่วน' : '🔄 ปกติ'}</span>
+        </div>
+        <div class="pick-name">${item.name}</div>
+        <div class="pick-dims" style="margin:4px 0">
+          <span>ยาว ${item.length}</span><span>กว้าง ${item.width}</span><span>สูง ${item.height}</span> cm
+        </div>
+        <div style="display:flex; gap:12px; align-items:center">
+          <span class="pick-qty">จำนวน: <b>${item.qty}</b></span>
+          <span class="pick-vol">${item.volume > 0 ? 'Vol: ' + item.volume.toLocaleString() + ' cm³' : ''}</span>
+        </div>
+        <div style="font-size:11px; color:var(--text3); margin-top:3px">${fmtTime(item.time)}</div>
+      </div>
+      <button class="btn-sm done" onclick="markDone(${item.id})">✓ เบิกแล้ว</button>
+    </div>
+  `).join('');
+}
+
+// ===== MARK DONE =====
+function markDone(id) {
+  const idx = picklist.findIndex(i => i.id === id);
+  if (idx < 0) return;
+  const item = picklist.splice(idx, 1)[0];
+  item.doneTime = new Date();
+  history.unshift(item);
+  toast(`✓ เบิก ${item.sku} เรียบร้อย`);
+  savePicklist();
+  saveHistory();
+  renderPickList();
+  updateBadge();
+}
+
+// ===== RENDER HISTORY =====
+function renderHistory() {
+  const container = document.getElementById('history-container');
+  if (!history.length) {
+    container.innerHTML = '<div class="empty"><div class="empty-icon">🕐</div>ยังไม่มีประวัติ</div>';
+    return;
+  }
+  container.innerHTML = history.map(item => `
+    <div class="history-item">
+      <span class="done-icon">✓</span>
+      <div class="history-info">
+        <div style="display:flex; gap:8px; align-items:center">
+          <span class="history-sku">${item.sku}</span>
+          <span class="badge ${item.type}">${item.type === 'urgent' ? '⚡ ด่วน' : '🔄 ปกติ'}</span>
+        </div>
+        <div class="history-name">${item.name} — จำนวน ${item.qty}</div>
+      </div>
+      <div class="history-time">${fmtTime(item.doneTime)}</div>
+    </div>
+  `).join('');
+}
+
+// ===== PRODUCTS =====
+let selectedSKUs = new Set();
+
+function renderProducts() {
+  const q = (document.getElementById('product-search')?.value || '').toLowerCase();
+  const filtered = products.filter(p =>
+    p.sku.toLowerCase().includes(q) || p.name.toLowerCase().includes(q)
+  );
+  const tbody = document.getElementById('products-tbody');
+  if (!filtered.length) {
+    tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; color:var(--text3); padding:24px">ไม่พบสินค้า</td></tr>';
+    return;
+  }
+  tbody.innerHTML = filtered.map(p => {
+    const vol = p.length * p.width * p.height;
+    const checked = selectedSKUs.has(p.sku) ? 'checked' : '';
+    return `<tr style="${selectedSKUs.has(p.sku) ? 'background:rgba(59,130,246,.06)' : ''}">
+      <td style="padding-left:14px"><input type="checkbox" ${checked} onchange="toggleSKU('${p.sku}', this)" style="cursor:pointer; accent-color:var(--accent)"></td>
+      <td class="td-sku">${p.sku}</td>
+      <td>${p.name}</td>
+      <td class="td-dim">${p.length || '—'}</td>
+      <td class="td-dim">${p.width || '—'}</td>
+      <td class="td-dim">${p.height || '—'}</td>
+      <td class="td-dim">${vol > 0 ? vol.toLocaleString() : '—'}</td>
+    </tr>`;
+  }).join('');
+  updateDeleteToolbar();
+  // sync check-all state
+  const allChecked = filtered.length > 0 && filtered.every(p => selectedSKUs.has(p.sku));
+  const someChecked = filtered.some(p => selectedSKUs.has(p.sku));
+  const ca = document.getElementById('check-all');
+  if (ca) { ca.checked = allChecked; ca.indeterminate = !allChecked && someChecked; }
+}
+
+function toggleSKU(sku, cb) {
+  if (cb.checked) selectedSKUs.add(sku);
+  else selectedSKUs.delete(sku);
+  renderProducts();
+}
+
+function toggleAll(cb) {
+  const q = (document.getElementById('product-search')?.value || '').toLowerCase();
+  const filtered = products.filter(p =>
+    p.sku.toLowerCase().includes(q) || p.name.toLowerCase().includes(q)
+  );
+  filtered.forEach(p => cb.checked ? selectedSKUs.add(p.sku) : selectedSKUs.delete(p.sku));
+  renderProducts();
+}
+
+function updateDeleteToolbar() {
+  const bar = document.getElementById('delete-toolbar');
+  const count = document.getElementById('selected-count');
+  if (selectedSKUs.size > 0) {
+    bar.style.display = 'flex';
+    count.textContent = `เลือก ${selectedSKUs.size} รายการ`;
+  } else {
+    bar.style.display = 'none';
+  }
+}
+
+function clearSelection() {
+  selectedSKUs.clear();
+  renderProducts();
+}
+
+function deleteSelected() {
+  if (!selectedSKUs.size) return;
+  if (!confirm(`🗑 ลบ ${selectedSKUs.size} รายการที่เลือก?\n\nการกระทำนี้ไม่สามารถย้อนกลับได้`)) return;
+  products = products.filter(p => !selectedSKUs.has(p.sku));
+  selectedSKUs.clear();
+  toast(`✓ ลบสินค้าเรียบร้อย`);
+  saveProducts();
+  renderProducts();
+}
+
+// ===== DASHBOARD =====
+function renderDashboard() {
+  const urgent = picklist.filter(i => i.type === 'urgent').length;
+  document.getElementById('stat-pending').textContent = picklist.length;
+  document.getElementById('stat-urgent').textContent = urgent;
+  document.getElementById('stat-done').textContent = history.length;
+  const el = document.getElementById('dash-urgent-list');
+  const urgentItems = picklist.filter(i => i.type === 'urgent');
+  el.innerHTML = urgentItems.length
+    ? urgentItems.map(i => `<div style="padding:8px 0; border-bottom:1px solid var(--border); font-size:13px; display:flex; gap:10px"><span style="font-family:var(--mono); color:var(--accent)">${i.sku}</span><span>${i.name}</span><span style="color:var(--text3)">×${i.qty}</span></div>`).join('')
+    : '<div class="empty" style="padding:16px">ไม่มีรายการด่วน 🎉</div>';
+}
+
+// ===== UTILS =====
+function updateBadge() { /* could update nav badge */ }
+function fmtTime(d) {
+  return d ? d.toLocaleString('th-TH', { hour: '2-digit', minute: '2-digit', day: 'numeric', month: 'short' }) : '';
+}
+function toast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.style.display = 'block';
+  setTimeout(() => t.style.display = 'none', 2500);
+}
+
+
+</script>
+</body>
+</html>
