@@ -200,6 +200,13 @@ tr:hover td{background:var(--surface2);}
 /* TOAST */
 #toast{position:fixed;bottom:calc(var(--nav) + 12px);left:50%;transform:translateX(-50%);background:var(--surface3);border:1px solid var(--border2);border-radius:24px;padding:10px 18px;font-size:13px;white-space:nowrap;z-index:999;display:none;box-shadow:0 4px 16px rgba(0,0,0,.4);}
 
+/* RESPONSIVE */
+@media(max-width:480px){
+  .hide-xs{display:none;}
+  td,th{padding:8px 6px;}
+  .td-sku{font-size:11px;}
+  .td-dim{font-size:11px;}
+}
 /* MISC */
 .ph{margin-bottom:16px;}
 .ph h1{font-size:22px;font-weight:700;letter-spacing:-.3px;}
@@ -361,15 +368,15 @@ tr:hover td{background:var(--surface2);}
           <button class="btn-sm" onclick="deleteSelected()" style="background:var(--urgent);color:#fff;border:none">🗑 ลบ</button>
         </div>
       </div>
-      <div class="card" style="padding:0;overflow:hidden">
+      <div class="card" style="padding:0;overflow:hidden"><div style="overflow-x:auto;-webkit-overflow-scrolling:touch">
         <table>
           <thead><tr>
             <th style="width:36px;padding-left:14px"><input type="checkbox" id="check-all" onchange="toggleAll(this)" style="cursor:pointer;accent-color:var(--accent)"></th>
-            <th>SKU</th><th>ชื่อสินค้า</th><th>ยาว</th><th>กว้าง</th><th>สูง</th><th>Vol</th><th></th>
+            <th>SKU</th><th class="hide-xs">ชื่อสินค้า</th><th>ยาว</th><th>กว้าง</th><th>สูง</th><th class="hide-xs">Vol</th><th></th>
           </tr></thead>
           <tbody id="products-tbody"></tbody>
         </table>
-      </div>
+      </div></div>
     </div>
   </div>
 
@@ -1020,9 +1027,9 @@ function renderProducts(){
     const vol=p.length*p.width*p.height;
     return`<tr style="${selectedSKUs.has(p.sku)?'background:rgba(79,142,247,.06)':''}">
       <td style="padding-left:14px"><input type="checkbox" ${selectedSKUs.has(p.sku)?'checked':''} onchange="toggleSKU('${p.sku}',this)" style="cursor:pointer;accent-color:var(--accent)"></td>
-      <td class="td-sku">${p.sku}</td><td>${p.name}</td>
+      <td class="td-sku">${p.sku}</td><td class="hide-xs">${p.name}</td>
       <td class="td-dim">${p.length||'—'}</td><td class="td-dim">${p.width||'—'}</td>
-      <td class="td-dim">${p.height||'—'}</td><td class="td-dim">${vol>0?vol.toLocaleString():'—'}</td>
+      <td class="td-dim">${p.height||'—'}</td><td class="td-dim hide-xs">${vol>0?vol.toLocaleString():'—'}</td>
       <td><button onclick="openBoxSizeModal('${p.sku}')" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:14px;padding:2px 4px" title="แก้ไขไซส์กล่อง">✏️</button></td>
     </tr>`;}).join('');
   updateDeleteToolbar();
