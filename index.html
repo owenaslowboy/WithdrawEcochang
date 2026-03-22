@@ -835,8 +835,8 @@ function renderHistory(){
     <div class="history-item">
       <span class="hi-check">✓</span>
       <div class="hi-info">
-        <div style="display:flex;gap:8px;align-items:center"><span class="hi-sku">${item.sku}</span><span class="badge ${item.type}">${item.type==='urgent'?'⚡':'🔄'}</span></div>
-        <div class="hi-name">${item.name} × ${item.qty}</div>
+        <div style="display:flex;gap:8px;align-items:center"><span class="hi-sku">${item.sku}</span><span class="badge ${item.type}">${item.type==='urgent'?'⚡':'🔄'}</span><span style="font-family:var(--mono);font-size:11px;color:var(--text3)">×${item.qty}</span></div>
+        ${item.name&&item.name!==item.sku?`<div class="hi-name">${item.name}</div>`:''}
       </div>
       <div class="hi-time">${fmtTime(item.doneTime)}</div>
     </div>`).join('');
