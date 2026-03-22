@@ -382,18 +382,48 @@ tr:hover td{background:var(--surface2);}
         <div class="stat-box s-urgent"><div class="stat-num" id="stat-urgent">0</div><div class="stat-lbl">ด่วน</div></div>
         <div class="stat-box s-done"><div class="stat-num" id="stat-done">0</div><div class="stat-lbl">เบิกแล้ว</div></div>
       </div>
+
+      <!-- TOP SKU CHART -->
       <div class="card">
-        <div class="card-label">📦 สินค้าในระบบ</div>
-        <div style="display:flex;gap:24px;font-family:var(--mono)">
-          <div><div style="font-size:22px;font-weight:600;color:var(--accent)" id="stat-products">0</div><div style="font-size:11px;color:var(--text3)">SKU ทั้งหมด</div></div>
-          <div><div style="font-size:22px;font-weight:600;color:var(--amber)" id="stat-vol-total">0</div><div style="font-size:11px;color:var(--text3)">Vol รอเบิก (cm³)</div></div>
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+          <div class="card-label" style="margin-bottom:0">📊 เบิกมากสุด (Top SKU)</div>
+          <select id="chart-range" onchange="renderDashboard()" style="background:var(--surface2);border:1px solid var(--border2);color:var(--text2);border-radius:6px;padding:4px 8px;font-size:11px;font-family:var(--sans);outline:none">
+            <option value="7">7 วัน</option>
+            <option value="30" selected>30 วัน</option>
+            <option value="0">ทั้งหมด</option>
+          </select>
         </div>
+        <div id="top-sku-chart"></div>
       </div>
+
       <div class="card"><div class="card-label">⚡ รายการด่วน</div><div id="dash-urgent-list"></div></div>
-      <div class="card"><div class="card-label">🕐 เบิกล่าสุด</div><div id="dash-recent-list"></div></div>
+      <div class="card">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+          <div class="card-label" style="margin-bottom:0">🕐 เบิกล่าสุด</div>
+          <button onclick="openHistoryModal()" style="background:none;border:1px solid var(--border2);color:var(--text2);border-radius:6px;padding:4px 10px;font-size:11px;cursor:pointer;font-family:var(--sans)">ดูทั้งหมด →</button>
+        </div>
+        <div id="dash-recent-list"></div>
+      </div>
     </div>
   </div>
 
+</div>
+
+<!-- MODAL: ดูรายการเบิกทั้งหมด -->
+<div class="modal-overlay" id="modal-history">
+  <div class="modal" style="max-height:80vh;display:flex;flex-direction:column">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+      <div class="modal-title">🕐 ประวัติการเบิกทั้งหมด</div>
+      <button onclick="closeHistoryModal()" style="background:none;border:none;color:var(--text3);font-size:20px;cursor:pointer">✕</button>
+    </div>
+    <div style="margin-bottom:10px">
+      <div class="search-wrap">
+        <span class="search-icon">🔍</span>
+        <input type="text" id="history-search" placeholder="ค้นหา SKU..." oninput="renderHistoryModal()" style="padding-left:36px">
+      </div>
+    </div>
+    <div id="history-modal-list" style="overflow-y:auto;flex:1"></div>
+  </div>
 </div>
 
 <!-- BOTTOM NAV -->
@@ -1021,22 +1051,79 @@ function deleteSelected(){
 // ===== DASHBOARD =====
 function renderDashboard(){
   const urgent=picklist.filter(i=>i.type==='urgent').length;
-  const totalVol=picklist.reduce((s,i)=>s+(i.volume||0)*i.qty,0);
   document.getElementById('stat-pending').textContent=picklist.length;
   document.getElementById('stat-urgent').textContent=urgent;
   document.getElementById('stat-done').textContent=history.length;
-  document.getElementById('stat-products').textContent=products.length;
-  document.getElementById('stat-vol-total').textContent=totalVol>0?totalVol.toLocaleString():'0';
+
+  // Chart range filter
+  const rangeEl=document.getElementById('chart-range');
+  const days=rangeEl?parseInt(rangeEl.value):30;
+  const cutoff=days>0?new Date(Date.now()-days*86400000):new Date(0);
+  const filtered=history.filter(i=>new Date(i.doneTime||i.time)>=cutoff);
+
+  // Aggregate by SKU
+  const skuMap={};
+  filtered.forEach(i=>{
+    const k=i.sku;
+    skuMap[k]=(skuMap[k]||0)+i.qty;
+  });
+  const top=Object.entries(skuMap).sort((a,b)=>b[1]-a[1]).slice(0,8);
+  const maxVal=top.length?top[0][1]:1;
+
+  const chartEl=document.getElementById('top-sku-chart');
+  if(chartEl){
+    if(!top.length){chartEl.innerHTML='<div style="font-size:13px;color:var(--text3);padding:8px 0;text-align:center">ยังไม่มีข้อมูล</div>';}
+    else{
+      chartEl.innerHTML=top.map(([sku,qty])=>{
+        const pct=Math.round(qty/maxVal*100);
+        return`<div style="margin-bottom:10px">
+          <div style="display:flex;justify-content:space-between;margin-bottom:4px">
+            <span style="font-family:var(--mono);font-size:12px;color:var(--accent)">${sku}</span>
+            <span style="font-family:var(--mono);font-size:12px;color:var(--text2);font-weight:600">${qty}</span>
+          </div>
+          <div style="height:8px;background:var(--surface2);border-radius:4px;overflow:hidden">
+            <div style="height:100%;width:${pct}%;background:linear-gradient(90deg,var(--accent),#7cb3ff);border-radius:4px;transition:width .4s ease"></div>
+          </div>
+        </div>`;}).join('');
+    }
+  }
+
+  // Urgent list
   const urgentEl=document.getElementById('dash-urgent-list');
   const urgentItems=picklist.filter(i=>i.type==='urgent');
   urgentEl.innerHTML=urgentItems.length
-    ?urgentItems.map(i=>`<div class="recent-item"><span class="ri-dot urgent"></span><span style="font-family:var(--mono);font-size:12px;color:var(--accent)">${i.sku}</span><span style="flex:1;font-size:13px;padding-left:8px">${i.name}</span><span style="font-family:var(--mono);font-size:12px;color:var(--text3)">×${i.qty}</span></div>`).join('')
+    ?urgentItems.map(i=>`<div class="recent-item"><span class="ri-dot urgent"></span><span style="font-family:var(--mono);font-size:12px;color:var(--accent);flex:1">${i.sku}</span><span style="font-family:var(--mono);font-size:12px;color:var(--text3)">×${i.qty}</span></div>`).join('')
     :'<div style="font-size:13px;color:var(--text3);padding:8px 0">ไม่มีรายการด่วน 🎉</div>';
+
+  // Recent 5
   const recentEl=document.getElementById('dash-recent-list');
   const recent=history.slice(0,5);
   recentEl.innerHTML=recent.length
     ?recent.map(i=>`<div class="recent-item"><span class="ri-dot normal"></span><span style="font-family:var(--mono);font-size:12px;color:var(--accent);flex:1">${i.sku}</span><span style="font-size:11px;color:var(--text3);font-family:var(--mono);margin-left:8px">×${i.qty}</span><span style="font-size:11px;color:var(--text3);font-family:var(--mono);margin-left:8px">${fmtTime(i.doneTime)}</span></div>`).join('')
     :'<div style="font-size:13px;color:var(--text3);padding:8px 0">ยังไม่มีประวัติ</div>';
+}
+
+// ===== HISTORY MODAL =====
+function openHistoryModal(){
+  document.getElementById('history-search').value='';
+  renderHistoryModal();
+  document.getElementById('modal-history').classList.add('open');
+}
+function closeHistoryModal(){
+  document.getElementById('modal-history').classList.remove('open');
+}
+function renderHistoryModal(){
+  const q=(document.getElementById('history-search')?.value||'').toLowerCase();
+  const filtered=history.filter(i=>i.sku.toLowerCase().includes(q));
+  const el=document.getElementById('history-modal-list');
+  if(!filtered.length){el.innerHTML='<div style="text-align:center;color:var(--text3);padding:24px;font-size:13px">ไม่พบรายการ</div>';return;}
+  el.innerHTML=filtered.map(i=>`
+    <div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--border)">
+      <span style="font-family:var(--mono);font-size:12px;color:var(--accent);flex:1">${i.sku}</span>
+      <span class="badge ${i.type}">${i.type==='urgent'?'⚡':'🔄'}</span>
+      <span style="font-family:var(--mono);font-size:12px;color:var(--text2)">×${i.qty}</span>
+      <span style="font-size:11px;color:var(--text3);font-family:var(--mono)">${fmtTime(i.doneTime)}</span>
+    </div>`).join('');
 }
 
 // ===== BOX SIZE MODAL =====
