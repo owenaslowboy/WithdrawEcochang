@@ -181,11 +181,17 @@ tr:hover td{background:var(--surface2);}
 /* MODAL */
 .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:200;display:none;align-items:flex-end;justify-content:center;backdrop-filter:blur(3px);}
 .modal-overlay.open{display:flex;}
-.modal{background:var(--surface);border-radius:16px 16px 0 0;padding:20px;width:100%;max-width:480px;animation:slideUp .25s ease;}
+.modal{background:var(--surface);border-radius:16px 16px 0 0;padding:20px;width:100%;max-width:480px;animation:slideUp .25s ease;max-height:85vh;overflow-y:auto;}
 @keyframes slideUp{from{transform:translateY(100%)}to{transform:translateY(0)}}
 .modal-title{font-size:16px;font-weight:600;margin-bottom:4px;}
 .modal-sub{font-size:13px;color:var(--text2);margin-bottom:16px;}
 .modal-row{display:flex;gap:10px;margin-top:12px;}
+.sku-check-item{display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;margin-bottom:6px;cursor:pointer;transition:all .15s;}
+.sku-check-item.checked{border-color:var(--accent);background:var(--accent-dim);}
+.sku-check-item input[type=checkbox]{accent-color:var(--accent);width:16px;height:16px;cursor:pointer;flex-shrink:0;}
+.sku-check-label{flex:1;}
+.sku-check-code{font-family:var(--mono);font-size:12px;color:var(--accent);}
+.sku-check-name{font-size:12px;color:var(--text2);margin-top:1px;}
 
 /* EMPTY */
 .empty{text-align:center;padding:48px 16px;color:var(--text3);font-size:13px;}
@@ -356,7 +362,7 @@ tr:hover td{background:var(--surface2);}
         <table>
           <thead><tr>
             <th style="width:36px;padding-left:14px"><input type="checkbox" id="check-all" onchange="toggleAll(this)" style="cursor:pointer;accent-color:var(--accent)"></th>
-            <th>SKU</th><th>ชื่อสินค้า</th><th>ยาว</th><th>กว้าง</th><th>สูง</th><th>Vol</th>
+            <th>SKU</th><th>ชื่อสินค้า</th><th>ยาว</th><th>กว้าง</th><th>สูง</th><th>Vol</th><th></th>
           </tr></thead>
           <tbody id="products-tbody"></tbody>
         </table>
@@ -395,6 +401,39 @@ tr:hover td{background:var(--surface2);}
   <button class="bnav-btn" id="bnav-stock" onclick="showPage('stock',this)"><span class="icon">📊</span><span>นับสต็อก</span></button>
   <button class="bnav-btn" id="bnav-products" onclick="showPage('products',this)"><span class="icon">📦</span><span>Products</span></button>
 </nav>
+
+<!-- MODAL: แก้ไขไซส์กล่อง -->
+<div class="modal-overlay" id="modal-boxsize">
+  <div class="modal">
+    <div class="modal-title">✏️ แก้ไขไซส์กล่อง</div>
+    <div class="modal-sub" id="boxsize-sku-label"></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:16px">
+      <div>
+        <label style="font-size:11px;color:var(--text3);display:block;margin-bottom:4px">ยาว (cm)</label>
+        <input type="number" id="bs-length" min="0" step="0.1" style="text-align:center">
+      </div>
+      <div>
+        <label style="font-size:11px;color:var(--text3);display:block;margin-bottom:4px">กว้าง (cm)</label>
+        <input type="number" id="bs-width" min="0" step="0.1" style="text-align:center">
+      </div>
+      <div>
+        <label style="font-size:11px;color:var(--text3);display:block;margin-bottom:4px">สูง (cm)</label>
+        <input type="number" id="bs-height" min="0" step="0.1" style="text-align:center">
+      </div>
+    </div>
+    <div id="similar-skus-section" style="display:none">
+      <div style="font-size:12px;font-weight:600;color:var(--text2);margin-bottom:8px">
+        🔗 SKU ใกล้เคียง — ใช้ไซส์เดียวกันด้วยไหม?
+      </div>
+      <div style="font-size:11px;color:var(--text3);margin-bottom:10px">ติ๊กถูกไว้แล้ว กดยกเลิกถ้าไม่ต้องการ</div>
+      <div id="similar-skus-list"></div>
+    </div>
+    <div class="modal-row">
+      <button class="btn btn-ghost" style="flex:1" onclick="closeBoxSizeModal()">ยกเลิก</button>
+      <button class="btn btn-primary" style="flex:2" onclick="saveBoxSize()">✓ บันทึก</button>
+    </div>
+  </div>
+</div>
 
 <!-- MODAL: ยืนยันจำนวนเบิก -->
 <div class="modal-overlay" id="modal-confirm">
@@ -946,6 +985,7 @@ function renderProducts(){
       <td class="td-sku">${p.sku}</td><td>${p.name}</td>
       <td class="td-dim">${p.length||'—'}</td><td class="td-dim">${p.width||'—'}</td>
       <td class="td-dim">${p.height||'—'}</td><td class="td-dim">${vol>0?vol.toLocaleString():'—'}</td>
+      <td><button onclick="openBoxSizeModal('${p.sku}')" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:14px;padding:2px 4px" title="แก้ไขไซส์กล่อง">✏️</button></td>
     </tr>`;}).join('');
   updateDeleteToolbar();
   const ca=document.getElementById('check-all');
@@ -989,6 +1029,90 @@ function renderDashboard(){
   recentEl.innerHTML=recent.length
     ?recent.map(i=>`<div class="recent-item"><span class="ri-dot normal"></span><span style="font-family:var(--mono);font-size:12px;color:var(--text3)">${i.sku}</span><span style="flex:1;font-size:13px;padding-left:8px;color:var(--text2)">${i.name}</span><span style="font-size:11px;color:var(--text3);font-family:var(--mono)">${fmtTime(i.doneTime)}</span></div>`).join('')
     :'<div style="font-size:13px;color:var(--text3);padding:8px 0">ยังไม่มีประวัติ</div>';
+}
+
+// ===== BOX SIZE MODAL =====
+let boxSizeTargetSku = null;
+
+function openBoxSizeModal(sku) {
+  const p = products.find(x => x.sku === sku);
+  if (!p) return;
+  boxSizeTargetSku = sku;
+  document.getElementById('boxsize-sku-label').textContent = sku + ' — ' + p.name;
+  document.getElementById('bs-length').value = p.length || '';
+  document.getElementById('bs-width').value = p.width || '';
+  document.getElementById('bs-height').value = p.height || '';
+
+  // Find similar SKUs by shared prefix
+  const similar = findSimilarSKUs(sku);
+  const section = document.getElementById('similar-skus-section');
+  const list = document.getElementById('similar-skus-list');
+  if (similar.length > 0) {
+    section.style.display = 'block';
+    list.innerHTML = similar.map(sp => {
+      const vol = sp.length * sp.width * sp.height;
+      return `<div class="sku-check-item checked" id="sku-check-wrap-${sp.sku.replace(/[^a-zA-Z0-9]/g,'_')}" onclick="toggleSkuCheck('${sp.sku}')">
+        <input type="checkbox" checked id="sku-check-${sp.sku.replace(/[^a-zA-Z0-9]/g,'_')}" onclick="event.stopPropagation();toggleSkuCheck('${sp.sku}')">
+        <div class="sku-check-label">
+          <div class="sku-check-code">${sp.sku}</div>
+          <div class="sku-check-name">${sp.name} · ${sp.length||'?'}×${sp.width||'?'}×${sp.height||'?'} cm</div>
+        </div>
+      </div>`;
+    }).join('');
+  } else {
+    section.style.display = 'none';
+  }
+  document.getElementById('modal-boxsize').classList.add('open');
+}
+
+function findSimilarSKUs(sku) {
+  // Find common prefix: strip last segment separated by - or last color/variant suffix
+  const parts = sku.split('-');
+  if (parts.length < 2) return [];
+  // Try prefix = all parts except last
+  const prefix = parts.slice(0, -1).join('-');
+  return products.filter(p => p.sku !== sku && p.sku.startsWith(prefix + '-'));
+}
+
+function toggleSkuCheck(sku) {
+  const safeId = sku.replace(/[^a-zA-Z0-9]/g, '_');
+  const cb = document.getElementById('sku-check-' + safeId);
+  const wrap = document.getElementById('sku-check-wrap-' + safeId);
+  if (!cb) return;
+  cb.checked = !cb.checked;
+  wrap.classList.toggle('checked', cb.checked);
+}
+
+function saveBoxSize() {
+  const length = parseFloat(document.getElementById('bs-length').value) || 0;
+  const width  = parseFloat(document.getElementById('bs-width').value)  || 0;
+  const height = parseFloat(document.getElementById('bs-height').value) || 0;
+
+  // Apply to target SKU
+  const idx = products.findIndex(p => p.sku === boxSizeTargetSku);
+  if (idx >= 0) { products[idx] = {...products[idx], length, width, height}; }
+
+  // Apply to checked similar SKUs
+  const similar = findSimilarSKUs(boxSizeTargetSku);
+  let appliedCount = 0;
+  similar.forEach(sp => {
+    const safeId = sp.sku.replace(/[^a-zA-Z0-9]/g, '_');
+    const cb = document.getElementById('sku-check-' + safeId);
+    if (cb && cb.checked) {
+      const i = products.findIndex(p => p.sku === sp.sku);
+      if (i >= 0) { products[i] = {...products[i], length, width, height}; appliedCount++; }
+    }
+  });
+
+  saveProducts();
+  renderProducts();
+  closeBoxSizeModal();
+  toast(`✓ บันทึกไซส์กล่อง${appliedCount > 0 ? ` (รวม ${appliedCount} SKU ใกล้เคียง)` : ''}`);
+}
+
+function closeBoxSizeModal() {
+  document.getElementById('modal-boxsize').classList.remove('open');
+  boxSizeTargetSku = null;
 }
 
 // ===== UTILS =====
