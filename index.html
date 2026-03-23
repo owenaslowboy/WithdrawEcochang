@@ -663,7 +663,7 @@ function addToPickList(){
   const qty=parseInt(document.getElementById('qty-input').value)||1;
   let p=selectedSKU||products.find(x=>x.sku===skuVal);
   if(!p){if(!skuVal){toast('⚠ กรุณากรอก SKU');return;}p={sku:skuVal,name:skuVal,length:0,width:0,height:0};}
-  picklist.push({id:Date.now(),sku:p.sku,name:p.name,length:p.length,width:p.width,height:p.height,qty,type:checkoutType,time:new Date(),volume:p.length*p.width*p.height});
+  picklist.push({id:Date.now(),sku:p.sku,name:p.name,length:p.length,width:p.width,height:p.height,qty,type:checkoutType,time:new Date(),volume:p.length*p.width});
   toast(`✓ เพิ่ม ${p.sku} × ${qty}`);
   document.getElementById('sku-input').value='';
   document.getElementById('qty-input').value=1;
@@ -674,30 +674,46 @@ function addToPickList(){
 
 // ===== PICKLIST SORT =====
 function sortList(key){
-  if(sortKey===key) sortDir[key]*=-1;
-  else sortKey=key;
+  if(sortKey===key){
+    sortDir[key]*=-1; // toggle direction
+  } else {
+    sortKey=key; // switch key, keep existing direction
+  }
   updateSortChips();
   renderPickList();
 }
 
 function updateSortChips(){
-  const dir=sortDir[sortKey];
-  document.getElementById('sort-vol').textContent='\uD83D\uDCE6 Volume'+(sortKey==='volume'?(dir===-1?' \u2193':' \u2191'):'');
-  document.getElementById('sort-sku').textContent='\uD83D\uDD24 SKU'+(sortKey==='sku'?(dir===-1?' \u2193':' \u2191'):'');
-  document.getElementById('sort-time').textContent='\uD83D\uDD50 \u0E40\u0E27\u0E25\u0E32'+(sortKey==='time'?(dir===-1?' \u2193':' \u2191'):'');
-  document.getElementById('sort-type').textContent='\u26A1 \u0E14\u0E48\u0E27\u0E19\u0E01\u0E48\u0E2D\u0E19';
-  document.querySelectorAll('.sort-chip').forEach(b=>b.classList.remove('active'));
-  document.getElementById('sort-'+sortKey).classList.add('active');
+  // arrow: -1 = descending ↓ (bigger/later/urgent first), 1 = ascending ↑
+  const chips={
+    volume:'📦 Volume',
+    type:'⚡ ด่วนก่อน',
+    sku:'🔤 SKU',
+    time:'🕐 เวลา',
+  };
+  Object.keys(chips).forEach(key=>{
+    const el=document.getElementById('sort-'+key.replace('volume','vol'));
+    if(!el)return;
+    let arrow='';
+    if(sortKey===key){
+      if(key==='volume') arrow=sortDir[key]===-1?' ↓':' ↑';
+      else if(key==='sku') arrow=sortDir[key]===1?' A→Z':' Z→A';
+      else if(key==='time') arrow=sortDir[key]===-1?' ใหม่สุด':' เก่าสุด';
+      else if(key==='type') arrow=sortDir[key]===1?' ด่วนก่อน':' ปกติก่อน';
+    }
+    el.textContent=chips[key]+arrow;
+    el.classList.toggle('active',sortKey===key);
+  });
 }
 
 function getSorted(){
   return[...picklist].sort((a,b)=>{
     // Primary sort
     let primary=0;
-    if(sortKey==='volume') primary=(b.volume-a.volume)*sortDir.volume;
-    else if(sortKey==='sku') primary=a.sku.localeCompare(b.sku)*sortDir.sku;
-    else if(sortKey==='time') primary=(b.time-a.time)*sortDir.time;
-    else if(sortKey==='type') primary=((a.type==='urgent'?-1:1)-(b.type==='urgent'?-1:1))*sortDir.type;
+    if(sortKey==='volume') primary=sortDir.volume===-1?(b.volume-a.volume):(a.volume-b.volume);
+    else if(sortKey==='sku') primary=sortDir.sku===1?a.sku.localeCompare(b.sku):b.sku.localeCompare(a.sku);
+    else if(sortKey==='time') primary=sortDir.time===-1?(b.time-a.time):(a.time-b.time);
+    else if(sortKey==='type') primary=sortDir.type===1?((a.type==='urgent'?-1:1)-(b.type==='urgent'?-1:1)):((b.type==='urgent'?-1:1)-(a.type==='urgent'?-1:1));
     if(primary!==0)return primary;
     // Secondary: urgent first (when primary is not type)
     if(sortKey!=='type'){
@@ -705,7 +721,7 @@ function getSorted(){
       if(typeOrder!==0)return typeOrder;
     }
     // Tertiary: larger volume first
-    if(sortKey!=='volume') return(b.volume-a.volume);
+    if(sortKey!=='volume') return(b.volume-a.volume); // always bigger first as tiebreak
     return 0;
   });
 }
@@ -758,9 +774,8 @@ function renderPickList(){
   el.innerHTML=getSorted().map(item=>{
     const sel=selectedPickIds.has(item.id);
     return`<div class="pick-item${item.type==='urgent'?' is-urgent':''}${sel?' selected':''}"
-      ontouchstart="onPickTouchStart(${item.id})" ontouchend="onPickTouchEnd()" ontouchmove="onPickTouchEnd()"
-      onmousedown="onPickMouseDown(${item.id})"
-      onclick="onPickClick(${item.id},event)">
+      ontouchstart="onPickTouchStart(event,${item.id})" ontouchend="onPickTouchEnd(event)" ontouchmove="onPickTouchCancel()"
+      onmousedown="onPickMouseDown(event,${item.id})" onmouseup="onPickMouseUp()" onmousemove="onPickMouseCancel()">
       <div style="display:flex;align-items:flex-start;gap:10px">
         <div style="flex:1">
           <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
@@ -770,7 +785,7 @@ function renderPickList(){
           </div>
           <div class="pick-name">${item.name}</div>
           <div class="pick-dims" style="margin:5px 0"><span>L:${item.length}</span><span>W:${item.width}</span><span>H:${item.height}</span>cm</div>
-          <div class="pick-vol">${item.volume>0?'Vol: '+item.volume.toLocaleString()+' cm³':''} · ${fmtTime(item.time)}</div>
+          <div class="pick-vol">${item.volume>0?'พื้นที่: '+item.volume.toLocaleString()+' cm²':''} · ${fmtTime(item.time)}</div>
         </div>
       </div>
       ${!pickSelectMode?`<div class="pick-bottom">
@@ -786,14 +801,47 @@ function renderPickList(){
 }
 
 // Long press handlers
-function onPickTouchStart(id){longPressTimer=setTimeout(()=>startPickSelect(id),500);}
-function onPickTouchEnd(){clearTimeout(longPressTimer);}
-let mouseDownTimer=null;
-function onPickMouseDown(id){mouseDownTimer=setTimeout(()=>startPickSelect(id),500);}
-function onPickClick(id,e){
-  clearTimeout(mouseDownTimer);
-  if(pickSelectMode){e.stopPropagation();togglePickSelect(id);}
+let _lpTimer=null, _lpFired=false, _lpId=null;
+
+function _lpStart(id){
+  _lpFired=false; _lpId=id;
+  _lpTimer=setTimeout(()=>{
+    _lpFired=true;
+    startPickSelect(id);
+  },500);
 }
+function _lpCancel(){
+  clearTimeout(_lpTimer);
+  _lpTimer=null;
+}
+function _lpEnd(id){
+  clearTimeout(_lpTimer);
+  if(!_lpFired && pickSelectMode){
+    togglePickSelect(id);
+  }
+  _lpFired=false;
+}
+
+function onPickTouchStart(e,id){
+  // Don't trigger if touching a button
+  if(e.target.tagName==='BUTTON'||e.target.closest('button')){return;}
+  _lpStart(id);
+}
+function onPickTouchEnd(e){
+  if(e&&(e.target.tagName==='BUTTON'||e.target.closest('button'))){_lpCancel();return;}
+  _lpEnd(_lpId);
+}
+function onPickTouchCancel(){ _lpCancel(); }
+
+function onPickMouseDown(e,id){
+  if(e.target.tagName==='BUTTON'||e.target.closest('button')){return;}
+  _lpStart(id);
+}
+function onPickMouseUp(){
+  if(!_lpFired && pickSelectMode){ _lpEnd(_lpId); }
+  else { _lpCancel(); }
+}
+function onPickMouseCancel(){ _lpCancel(); }
 
 function moveSingleToStock(e,sku,name){
   e.stopPropagation();
@@ -1024,7 +1072,7 @@ function renderProducts(){
   const tbody=document.getElementById('products-tbody');
   if(!filtered.length){tbody.innerHTML='<tr><td colspan="7" style="text-align:center;color:var(--text3);padding:24px">ไม่พบสินค้า</td></tr>';return;}
   tbody.innerHTML=filtered.map(p=>{
-    const vol=p.length*p.width*p.height;
+    const vol=p.length*p.width;
     return`<tr style="${selectedSKUs.has(p.sku)?'background:rgba(79,142,247,.06)':''}">
       <td style="padding-left:14px"><input type="checkbox" ${selectedSKUs.has(p.sku)?'checked':''} onchange="toggleSKU('${p.sku}',this)" style="cursor:pointer;accent-color:var(--accent)"></td>
       <td class="td-sku">${p.sku}</td><td class="hide-xs">${p.name}</td>
