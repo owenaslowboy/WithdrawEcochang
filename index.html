@@ -523,12 +523,10 @@ let selectedSKUs = new Set();
 let selectedPickIds = new Set();
 let checkoutType = 'normal';
 let selectedSKU = null;
-let sortKey = 'volume';
-let sortDir = {volume:-1,sku:1,time:-1,type:1};
+let sortPrimary='volume',sortSecondary='type';
 let codeReader = null;
 
 let modalItemId = null;
-let longPressTimer = null;
 let pickSelectMode = false;
 
 // ===== FIREBASE =====
@@ -673,56 +671,72 @@ function addToPickList(){
 }
 
 // ===== PICKLIST SORT =====
+// Sort: primary key + secondary key
+let sortPrimary='volume';  // primary sort key
+let sortSecondary='type';  // secondary sort key
+// dir: -1=desc, 1=asc per key
+const sortDirMap={volume:-1,sku:1,time:-1,type:1};
+
 function sortList(key){
-  if(sortKey===key){
-    sortDir[key]*=-1; // toggle direction
+  if(sortPrimary===key){
+    // Toggle direction of primary
+    sortDirMap[key]*=-1;
+  } else if(sortSecondary===key){
+    // Promote secondary to primary, old primary becomes secondary
+    sortSecondary=sortPrimary;
+    sortPrimary=key;
   } else {
-    sortKey=key; // switch key, keep existing direction
+    // New key: secondary becomes old primary, new key is primary
+    sortSecondary=sortPrimary;
+    sortPrimary=key;
   }
   updateSortChips();
   renderPickList();
 }
 
-function updateSortChips(){
-  // arrow: -1 = descending ↓ (bigger/later/urgent first), 1 = ascending ↑
-  const chips={
-    volume:'📦 Volume',
-    type:'⚡ ด่วนก่อน',
-    sku:'🔤 SKU',
-    time:'🕐 เวลา',
-  };
-  Object.keys(chips).forEach(key=>{
-    const el=document.getElementById('sort-'+key.replace('volume','vol'));
-    if(!el)return;
-    let arrow='';
-    if(sortKey===key){
-      if(key==='volume') arrow=sortDir[key]===-1?' ↓':' ↑';
-      else if(key==='sku') arrow=sortDir[key]===1?' A→Z':' Z→A';
-      else if(key==='time') arrow=sortDir[key]===-1?' ใหม่สุด':' เก่าสุด';
-      else if(key==='type') arrow=sortDir[key]===1?' ด่วนก่อน':' ปกติก่อน';
-    }
-    el.textContent=chips[key]+arrow;
-    el.classList.toggle('active',sortKey===key);
-  });
+function cmpByKey(a,b,key){
+  const d=sortDirMap[key];
+  if(key==='volume') return d===-1?(b.volume-a.volume):(a.volume-b.volume);
+  if(key==='sku')    return d===1?a.sku.localeCompare(b.sku):b.sku.localeCompare(a.sku);
+  if(key==='time')   return d===-1?(b.time-a.time):(a.time-b.time);
+  if(key==='type'){
+    const ua=a.type==='urgent'?0:1, ub=b.type==='urgent'?0:1;
+    return d===1?(ua-ub):(ub-ua);
+  }
+  return 0;
 }
 
 function getSorted(){
   return[...picklist].sort((a,b)=>{
-    // Primary sort
-    let primary=0;
-    if(sortKey==='volume') primary=sortDir.volume===-1?(b.volume-a.volume):(a.volume-b.volume);
-    else if(sortKey==='sku') primary=sortDir.sku===1?a.sku.localeCompare(b.sku):b.sku.localeCompare(a.sku);
-    else if(sortKey==='time') primary=sortDir.time===-1?(b.time-a.time):(a.time-b.time);
-    else if(sortKey==='type') primary=sortDir.type===1?((a.type==='urgent'?-1:1)-(b.type==='urgent'?-1:1)):((b.type==='urgent'?-1:1)-(a.type==='urgent'?-1:1));
-    if(primary!==0)return primary;
-    // Secondary: urgent first (when primary is not type)
-    if(sortKey!=='type'){
-      const typeOrder=(a.type==='urgent'?-1:1)-(b.type==='urgent'?-1:1);
-      if(typeOrder!==0)return typeOrder;
-    }
-    // Tertiary: larger volume first
-    if(sortKey!=='volume') return(b.volume-a.volume); // always bigger first as tiebreak
-    return 0;
+    const p=cmpByKey(a,b,sortPrimary);
+    if(p!==0) return p;
+    return cmpByKey(a,b,sortSecondary);
+  });
+}
+
+function updateSortChips(){
+  const labels={
+    volume:'📦 Volume',
+    type:'⚡ ด่วน',
+    sku:'🔤 SKU',
+    time:'🕐 เวลา',
+  };
+  const arrows={
+    volume:sortDirMap.volume===-1?' ↓':' ↑',
+    sku:sortDirMap.sku===1?' A↑':' Z↑',
+    time:sortDirMap.time===-1?' ใหม่':' เก่า',
+    type:sortDirMap.type===1?' ด่วน↑':' ปกติ↑',
+  };
+  ['volume','type','sku','time'].forEach(key=>{
+    const elId='sort-'+(key==='volume'?'vol':key);
+    const el=document.getElementById(elId);
+    if(!el) return;
+    const isPrimary=sortPrimary===key;
+    const isSecondary=sortSecondary===key;
+    el.textContent=labels[key]+(isPrimary?arrows[key]:isSecondary?' 2':'');
+    el.classList.toggle('active',isPrimary);
+    el.style.opacity=isSecondary?'0.7':'1';
+    el.style.borderStyle=isSecondary?'dashed':'solid';
   });
 }
 
@@ -773,9 +787,7 @@ function renderPickList(){
   if(pickSelectMode&&selectedPickIds.size>0)document.getElementById('pick-sel-count').textContent=`เลือก ${selectedPickIds.size} รายการ`;
   el.innerHTML=getSorted().map(item=>{
     const sel=selectedPickIds.has(item.id);
-    return`<div class="pick-item${item.type==='urgent'?' is-urgent':''}${sel?' selected':''}"
-      ontouchstart="onPickTouchStart(event,${item.id})" ontouchend="onPickTouchEnd(event)" ontouchmove="onPickTouchCancel()"
-      onmousedown="onPickMouseDown(event,${item.id})" onmouseup="onPickMouseUp()" onmousemove="onPickMouseCancel()">
+    return`<div class="pick-item${item.type==='urgent'?' is-urgent':''}${sel?' selected':''}" id="pick-card-${item.id}">
       <div style="display:flex;align-items:flex-start;gap:10px">
         <div style="flex:1">
           <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
@@ -798,50 +810,51 @@ function renderPickList(){
         <button class="done-btn" onclick="requestMarkDone(event,${item.id})">✓ เบิก</button>
       </div>`:''}
     </div>`;}).join('');
+  attachPickEvents();
 }
 
-// Long press handlers
-let _lpTimer=null, _lpFired=false, _lpId=null;
+// Long press handlers - use addEventListener after render
+let _lpTimer=null;
 
-function _lpStart(id){
-  _lpFired=false; _lpId=id;
-  _lpTimer=setTimeout(()=>{
-    _lpFired=true;
-    startPickSelect(id);
-  },500);
-}
-function _lpCancel(){
-  clearTimeout(_lpTimer);
-  _lpTimer=null;
-}
-function _lpEnd(id){
-  clearTimeout(_lpTimer);
-  if(!_lpFired && pickSelectMode){
-    togglePickSelect(id);
-  }
-  _lpFired=false;
-}
+function attachPickEvents(){
+  document.querySelectorAll('[id^="pick-card-"]').forEach(card=>{
+    const id=parseInt(card.id.replace('pick-card-',''));
+    let moved=false;
 
-function onPickTouchStart(e,id){
-  // Don't trigger if touching a button
-  if(e.target.tagName==='BUTTON'||e.target.closest('button')){return;}
-  _lpStart(id);
-}
-function onPickTouchEnd(e){
-  if(e&&(e.target.tagName==='BUTTON'||e.target.closest('button'))){_lpCancel();return;}
-  _lpEnd(_lpId);
-}
-function onPickTouchCancel(){ _lpCancel(); }
+    card.addEventListener('touchstart', e=>{
+      if(e.target.closest('button'))return;
+      moved=false;
+      _lpTimer=setTimeout(()=>{
+        if(!moved){ startPickSelect(id); navigator.vibrate&&navigator.vibrate(40); }
+      },500);
+    },{passive:true});
 
-function onPickMouseDown(e,id){
-  if(e.target.tagName==='BUTTON'||e.target.closest('button')){return;}
-  _lpStart(id);
+    card.addEventListener('touchmove', ()=>{
+      moved=true; clearTimeout(_lpTimer);
+    },{passive:true});
+
+    card.addEventListener('touchend', e=>{
+      clearTimeout(_lpTimer);
+      if(e.target.closest('button'))return;
+      if(!moved && pickSelectMode) togglePickSelect(id);
+    });
+
+    // Desktop
+    card.addEventListener('mousedown', e=>{
+      if(e.target.closest('button'))return;
+      moved=false;
+      _lpTimer=setTimeout(()=>{
+        if(!moved) startPickSelect(id);
+      },500);
+    });
+    card.addEventListener('mousemove', ()=>{ moved=true; });
+    card.addEventListener('mouseup', e=>{
+      clearTimeout(_lpTimer);
+      if(e.target.closest('button'))return;
+      if(!moved && pickSelectMode) togglePickSelect(id);
+    });
+  });
 }
-function onPickMouseUp(){
-  if(!_lpFired && pickSelectMode){ _lpEnd(_lpId); }
-  else { _lpCancel(); }
-}
-function onPickMouseCancel(){ _lpCancel(); }
 
 function moveSingleToStock(e,sku,name){
   e.stopPropagation();
