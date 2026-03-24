@@ -315,4 +315,659 @@ tr:hover td{background:var(--surface2);}
       <div class="field">
         <div class="search-wrap">
           <span class="search-icon">🔍</span>
-          <input type="text" id="stock-search" placeholder="ค้นหา SKU..." on
+          <input type="text" id="stock-search" placeholder="ค้นหา SKU..." oninput="renderStockList()">
+        </div>
+      </div>
+      <div id="stock-list-container"></div>
+      <button class="btn btn-success" style="margin-top:8px" onclick="saveStockCount()">💾 บันทึกสต็อก</button>
+    </div>
+  </div>
+
+  <!-- PRODUCTS -->
+  <div id="page-products" class="page">
+    <div class="container">
+      <div class="ph"><h1>Products</h1><p>จัดการ SKU และขนาดสินค้า</p></div>
+      <div class="products-toolbar">
+        <div class="search-wrap" style="flex:1">
+          <span class="search-icon">🔍</span>
+          <input type="text" id="prod-search" placeholder="ค้นหา SKU / ชื่อ..." oninput="renderProductTable()">
+        </div>
+        <button class="btn-sm" onclick="openAddProductModal()" style="background:var(--accent-dim);border-color:var(--accent);color:var(--accent)">+ เพิ่ม</button>
+      </div>
+      <div class="delete-bar" id="delete-bar">
+        <span style="font-size:13px;color:#f87171;font-weight:500" id="del-count-label"></span>
+        <button class="btn-sm" onclick="deleteSelectedProducts()" style="background:var(--urgent-dim);border-color:var(--urgent);color:var(--urgent)">🗑 ลบที่เลือก</button>
+      </div>
+
+      <!-- Import area -->
+      <div class="card" style="margin-bottom:10px">
+        <div class="card-label">📥 นำเข้าข้อมูล</div>
+        <div style="display:flex;gap:8px;margin-bottom:10px">
+          <button class="mode-chip active" id="import-mode-csv" onclick="setImportMode('csv')">CSV</button>
+          <button class="mode-chip" id="import-mode-manual" onclick="setImportMode('manual')">Manual</button>
+        </div>
+        <div id="import-csv-area">
+          <label class="import-area" for="csv-file-input">
+            <span style="font-size:24px">📄</span>
+            <div>
+              <div style="font-size:13px;font-weight:600">เลือกไฟล์ CSV</div>
+              <div style="font-size:11px;color:var(--text3);margin-top:2px">SKU, ชื่อ, กว้าง, ยาว, สูง (cm)</div>
+            </div>
+            <input type="file" id="csv-file-input" accept=".csv" onchange="importCSV(event)">
+          </label>
+        </div>
+        <div id="import-manual-area" style="display:none">
+          <textarea id="manual-csv" style="width:100%;background:var(--bg);border:1px solid var(--border2);border-radius:var(--r);padding:11px 13px;color:var(--text);font-family:var(--mono);font-size:12px;outline:none;resize:vertical;min-height:80px" placeholder="SKU001,ชื่อสินค้า,30,20,15&#10;SKU002,สินค้าอีกชิ้น,40,30,20"></textarea>
+          <button class="btn btn-ghost" style="margin-top:8px" onclick="importManualCSV()">📥 นำเข้า</button>
+        </div>
+      </div>
+
+      <div id="products-table-wrap">
+        <div class="card" style="padding:0;overflow:hidden">
+          <table id="products-table">
+            <thead>
+              <tr>
+                <th style="width:32px"><input type="checkbox" id="select-all-prod" onclick="toggleSelectAllProducts()" style="accent-color:var(--accent);cursor:pointer"></th>
+                <th>SKU</th>
+                <th>ชื่อสินค้า</th>
+                <th class="hide-xs">W×L×H (cm)</th>
+                <th class="hide-xs">Vol (cm³)</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="products-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- BOTTOM NAV -->
+<nav class="bottom-nav">
+  <button class="bnav-btn active" id="bnav-checkout" onclick="goPage('checkout')">
+    <span class="icon">✈</span>
+    <span>Checkout</span>
+  </button>
+  <button class="bnav-btn" id="bnav-picklist" onclick="goPage('picklist')">
+    <span class="icon">📋</span>
+    <span>Pick List</span>
+    <span class="bnav-pip" id="pip-picklist"></span>
+  </button>
+  <button class="bnav-btn" id="bnav-history" onclick="goPage('history')">
+    <span class="icon">🕐</span>
+    <span>History</span>
+  </button>
+  <button class="bnav-btn" id="bnav-stock" onclick="goPage('stock')">
+    <span class="icon">📊</span>
+    <span>สต็อก</span>
+  </button>
+  <button class="bnav-btn" id="bnav-products" onclick="goPage('products')">
+    <span class="icon">📦</span>
+    <span>Products</span>
+  </button>
+</nav>
+
+<!-- MODAL: Add Product -->
+<div class="modal-overlay" id="modal-add-product">
+  <div class="modal">
+    <div class="modal-title">➕ เพิ่มสินค้าใหม่</div>
+    <div class="modal-sub">กรอกข้อมูล SKU และขนาด</div>
+    <div class="field"><label>SKU Code *</label><input type="text" id="new-sku" placeholder="เช่น SKU001"></div>
+    <div class="field"><label>ชื่อสินค้า *</label><input type="text" id="new-name" placeholder="ชื่อสินค้า"></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:14px">
+      <div class="field" style="margin:0"><label>กว้าง (cm)</label><input type="number" id="new-w" placeholder="0" min="0"></div>
+      <div class="field" style="margin:0"><label>ยาว (cm)</label><input type="number" id="new-l" placeholder="0" min="0"></div>
+      <div class="field" style="margin:0"><label>สูง (cm)</label><input type="number" id="new-h" placeholder="0" min="0"></div>
+    </div>
+    <div class="modal-row">
+      <button class="btn btn-ghost" onclick="closeModal('modal-add-product')">ยกเลิก</button>
+      <button class="btn btn-primary" onclick="saveNewProduct()">บันทึก</button>
+    </div>
+  </div>
+</div>
+
+<!-- TOAST -->
+<div id="toast"></div>
+
+<!-- LOADING -->
+<div id="loading-overlay">
+  <div style="text-align:center">
+    <div class="lo-spin">⏳</div>
+    <div style="font-size:13px;color:var(--text2)">กำลังโหลด...</div>
+  </div>
+</div>
+
+<script>
+// ===================== DATA =====================
+let products = JSON.parse(localStorage.getItem('inv_products') || '[]');
+let pickList = JSON.parse(localStorage.getItem('inv_picklist') || '[]');
+let history  = JSON.parse(localStorage.getItem('inv_history')  || '[]');
+let stockData= JSON.parse(localStorage.getItem('inv_stock')    || '{}');
+
+// Sample products if empty
+if (products.length === 0) {
+  products = [
+    {sku:'SKU001',name:'กล่องกระดาษ A',w:30,l:20,h:15},
+    {sku:'SKU002',name:'ถุงพลาสติก B',w:40,l:30,h:5},
+    {sku:'SKU003',name:'โฟมกันกระแทก C',w:50,l:50,h:10},
+    {sku:'SKU004',name:'เทปกาว OPP',w:5,l:5,h:10},
+    {sku:'SKU005',name:'กล่องใส่เอกสาร',w:35,l:25,h:8},
+  ];
+  saveProducts();
+}
+
+function saveProducts(){ localStorage.setItem('inv_products', JSON.stringify(products)); }
+function savePickList(){ localStorage.setItem('inv_picklist', JSON.stringify(pickList)); }
+function saveHistory(){ localStorage.setItem('inv_history', JSON.stringify(history)); }
+function saveStock(){ localStorage.setItem('inv_stock', JSON.stringify(stockData)); }
+
+// ===================== NAVIGATION =====================
+let currentPage = 'checkout';
+const pageTitles = {
+  checkout: 'Checkout',
+  picklist: 'Pick List',
+  history:  'History',
+  stock:    'นับสต็อก',
+  products: 'Products'
+};
+
+function goPage(page) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.bnav-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('page-' + page).classList.add('active');
+  document.getElementById('bnav-' + page).classList.add('active');
+  document.getElementById('topbar-title').textContent = pageTitles[page];
+  currentPage = page;
+
+  if (page === 'picklist') renderPickList();
+  if (page === 'history')  renderHistory();
+  if (page === 'stock')    renderStockList();
+  if (page === 'products') renderProductTable();
+  updatePip();
+}
+
+function updatePip() {
+  const pip = document.getElementById('pip-picklist');
+  if (pickList.length > 0) {
+    pip.style.display = 'flex';
+    pip.textContent = pickList.length;
+  } else {
+    pip.style.display = 'none';
+  }
+}
+
+// ===================== TOAST =====================
+let toastTimer;
+function showToast(msg, duration=2000) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.style.display = 'block';
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { t.style.display='none'; }, duration);
+}
+
+// ===================== MODAL =====================
+function openModal(id)  { document.getElementById(id).classList.add('open'); }
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+
+// ===================== SKU DROPDOWN =====================
+let selectedSKU = null;
+let checkoutType = 'normal';
+
+function filterSKU() {
+  const q = document.getElementById('sku-input').value.toLowerCase();
+  const dd = document.getElementById('sku-dropdown');
+  selectedSKU = null;
+  document.getElementById('selected-info').style.display = 'none';
+
+  if (!q) { dd.classList.remove('open'); return; }
+
+  const matches = products.filter(p =>
+    p.sku.toLowerCase().includes(q) || p.name.toLowerCase().includes(q)
+  ).slice(0, 8);
+
+  if (matches.length === 0) { dd.classList.remove('open'); return; }
+
+  dd.innerHTML = matches.map(p => {
+    const vol = (p.w * p.l * p.h).toLocaleString();
+    return `<div class="dd-item" onmousedown="selectSKU('${p.sku}')">
+      <div>
+        <div class="dd-sku">${p.sku}</div>
+        <div class="dd-name">${p.name}</div>
+      </div>
+      <div class="dd-dims">${p.w}×${p.l}×${p.h}</div>
+    </div>`;
+  }).join('');
+  dd.classList.add('open');
+}
+
+function selectSKU(sku) {
+  const p = products.find(x => x.sku === sku);
+  if (!p) return;
+  selectedSKU = p;
+  document.getElementById('sku-input').value = sku;
+  document.getElementById('sku-dropdown').classList.remove('open');
+  document.getElementById('sel-name').textContent = p.name;
+  document.getElementById('sel-dims').textContent =
+    `${p.w} × ${p.l} × ${p.h} cm  |  Vol: ${(p.w*p.l*p.h).toLocaleString()} cm³`;
+  document.getElementById('selected-info').style.display = 'block';
+}
+
+function closeDropdownDelay() {
+  setTimeout(() => document.getElementById('sku-dropdown').classList.remove('open'), 200);
+}
+
+function setType(type) {
+  checkoutType = type;
+  document.getElementById('type-normal').classList.toggle('active', type==='normal');
+  document.getElementById('type-urgent').classList.toggle('active', type==='urgent');
+}
+
+function addToPickList() {
+  if (!selectedSKU) {
+    // try match by SKU text
+    const val = document.getElementById('sku-input').value.trim().toUpperCase();
+    const found = products.find(p => p.sku.toUpperCase() === val);
+    if (found) { selectSKU(found.sku); return; }
+    showToast('⚠️ กรุณาเลือก SKU ก่อน'); return;
+  }
+  const qty = parseInt(document.getElementById('qty-input').value) || 1;
+  const item = {
+    id: Date.now(),
+    sku: selectedSKU.sku,
+    name: selectedSKU.name,
+    w: selectedSKU.w, l: selectedSKU.l, h: selectedSKU.h,
+    qty,
+    type: checkoutType,
+    time: Date.now()
+  };
+  pickList.push(item);
+  savePickList();
+  updatePip();
+  showToast(`✅ เพิ่ม ${selectedSKU.sku} ×${qty} แล้ว`);
+  // reset
+  document.getElementById('sku-input').value = '';
+  document.getElementById('selected-info').style.display = 'none';
+  document.getElementById('qty-input').value = '1';
+  selectedSKU = null;
+  setType('normal');
+}
+
+// ===================== PICK LIST =====================
+let currentSort = 'volume';
+let selectedPickIds = new Set();
+
+function sortList(mode) {
+  currentSort = mode;
+  document.querySelectorAll('.sort-chip').forEach(c => c.classList.remove('active'));
+  document.getElementById('sort-' + mode).classList.add('active');
+  renderPickList();
+}
+
+function getSortedPickList() {
+  const list = [...pickList];
+  if (currentSort === 'volume') {
+    list.sort((a,b) => (b.w*b.l*b.h*b.qty) - (a.w*a.l*a.h*a.qty));
+  } else if (currentSort === 'type') {
+    list.sort((a,b) => (a.type==='urgent'?0:1) - (b.type==='urgent'?0:1));
+  } else if (currentSort === 'sku') {
+    list.sort((a,b) => a.sku.localeCompare(b.sku));
+  } else if (currentSort === 'time') {
+    list.sort((a,b) => b.time - a.time);
+  }
+  return list;
+}
+
+function renderPickList() {
+  const c = document.getElementById('picklist-container');
+  const sorted = getSortedPickList();
+  if (sorted.length === 0) {
+    c.innerHTML = `<div class="empty"><div class="empty-icon">📋</div>ยังไม่มีรายการ<br>ไปที่ Checkout เพื่อเบิกสินค้า</div>`;
+    return;
+  }
+  c.innerHTML = sorted.map(item => {
+    const vol = (item.w * item.l * item.h * item.qty).toLocaleString();
+    const sel = selectedPickIds.has(item.id) ? 'selected' : '';
+    const urg = item.type === 'urgent' ? 'is-urgent' : '';
+    return `<div class="pick-item ${urg} ${sel}" id="pick-${item.id}"
+      oncontextmenu="return false"
+      ontouchstart="pickTouchStart(${item.id})" ontouchend="pickTouchEnd()"
+      onclick="pickItemClick(${item.id})">
+      <div style="display:flex;align-items:center;justify-content:space-between">
+        <div>
+          <div class="pick-sku">${item.sku}
+            ${item.type==='urgent' ? '<span class="badge urgent" style="margin-left:6px">⚡ ด่วน</span>' : ''}
+          </div>
+          <div class="pick-name">${item.name}</div>
+          <div class="pick-dims">
+            <span>${item.w}</span><span>${item.l}</span><span>${item.h}</span> cm
+          </div>
+          <div class="pick-vol">Vol: ${vol} cm³</div>
+        </div>
+      </div>
+      <div class="pick-bottom">
+        <div class="qty-control">
+          <button class="qty-btn" onclick="changePickQty(event,${item.id},-1)">−</button>
+          <div class="qty-val" id="qv-${item.id}">${item.qty}</div>
+          <button class="qty-btn" onclick="changePickQty(event,${item.id},1)">+</button>
+        </div>
+        <button class="move-stock-btn" onclick="moveOneToStock(event,${item.id})">📊 สต็อก</button>
+        <button class="done-btn" onclick="markDone(event,${item.id})">✓ เบิกแล้ว</button>
+      </div>
+    </div>`;
+  }).join('');
+  updatePickToolbar();
+}
+
+let pickHoldTimer = null;
+function pickTouchStart(id) {
+  pickHoldTimer = setTimeout(() => togglePickSelect(id), 500);
+}
+function pickTouchEnd() {
+  clearTimeout(pickHoldTimer);
+}
+function pickItemClick(id) {
+  if (selectedPickIds.size > 0) togglePickSelect(id);
+}
+function togglePickSelect(id) {
+  if (selectedPickIds.has(id)) selectedPickIds.delete(id);
+  else selectedPickIds.add(id);
+  renderPickList();
+}
+function clearPickSelection() {
+  selectedPickIds.clear();
+  renderPickList();
+}
+function updatePickToolbar() {
+  const tb = document.getElementById('pick-toolbar');
+  if (selectedPickIds.size > 0) {
+    tb.classList.add('show');
+    document.getElementById('pick-sel-count').textContent = `เลือก ${selectedPickIds.size} รายการ`;
+  } else {
+    tb.classList.remove('show');
+  }
+}
+function deleteSelectedPick() {
+  pickList = pickList.filter(p => !selectedPickIds.has(p.id));
+  selectedPickIds.clear();
+  savePickList();
+  updatePip();
+  renderPickList();
+  showToast('🗑 ลบรายการที่เลือกแล้ว');
+}
+function moveSelectedToStock() {
+  const toMove = pickList.filter(p => selectedPickIds.has(p.id));
+  toMove.forEach(item => {
+    if (!stockData[item.sku]) stockData[item.sku] = {actual:0, box:0};
+  });
+  selectedPickIds.clear();
+  saveStock();
+  renderPickList();
+  showToast('📊 ย้ายไปหน้านับสต็อกแล้ว');
+}
+
+function changePickQty(e, id, delta) {
+  e.stopPropagation();
+  const item = pickList.find(p => p.id === id);
+  if (!item) return;
+  item.qty = Math.max(1, item.qty + delta);
+  document.getElementById('qv-' + id).textContent = item.qty;
+  savePickList();
+}
+
+function markDone(e, id) {
+  e.stopPropagation();
+  const idx = pickList.findIndex(p => p.id === id);
+  if (idx === -1) return;
+  const item = pickList[idx];
+  history.unshift({...item, doneTime: Date.now()});
+  pickList.splice(idx, 1);
+  savePickList();
+  saveHistory();
+  updatePip();
+  renderPickList();
+  showToast('✅ บันทึกการเบิกแล้ว');
+}
+
+function moveOneToStock(e, id) {
+  e.stopPropagation();
+  const item = pickList.find(p => p.id === id);
+  if (!item) return;
+  if (!stockData[item.sku]) stockData[item.sku] = {actual:0, box:0};
+  saveStock();
+  showToast(`📊 เพิ่ม ${item.sku} ในหน้านับสต็อก`);
+}
+
+// ===================== HISTORY =====================
+function renderHistory() {
+  const c = document.getElementById('history-container');
+  if (history.length === 0) {
+    c.innerHTML = `<div class="empty"><div class="empty-icon">🕐</div>ยังไม่มีประวัติการเบิก</div>`;
+    return;
+  }
+  c.innerHTML = history.map(item => {
+    const d = new Date(item.doneTime);
+    const timeStr = `${d.getHours().toString().padStart(2,'0')}:${d.getMinutes().toString().padStart(2,'0')}`;
+    const dateStr = `${d.getDate()}/${d.getMonth()+1}`;
+    return `<div class="history-item">
+      <div class="hi-check">✓</div>
+      <div class="hi-info">
+        <div class="hi-sku">${item.sku} ×${item.qty}</div>
+        <div class="hi-name">${item.name}</div>
+      </div>
+      <div class="hi-time">${dateStr}<br>${timeStr}</div>
+    </div>`;
+  }).join('');
+}
+
+function clearHistory() {
+  if (!confirm('ล้างประวัติทั้งหมด?')) return;
+  history = [];
+  saveHistory();
+  renderHistory();
+}
+
+// ===================== STOCK COUNT =====================
+function renderStockList() {
+  const c = document.getElementById('stock-list-container');
+  const q = (document.getElementById('stock-search').value || '').toLowerCase();
+  const list = products.filter(p =>
+    p.sku.toLowerCase().includes(q) || p.name.toLowerCase().includes(q)
+  );
+  if (list.length === 0) {
+    c.innerHTML = `<div class="empty"><div class="empty-icon">📊</div>ไม่พบสินค้า</div>`;
+    return;
+  }
+  c.innerHTML = list.map(p => {
+    const sd = stockData[p.sku] || {actual:0, box:0};
+    const total = sd.actual + (sd.box * 12);
+    const max = Math.max(total, 100);
+    const pct = Math.min(100, Math.round((total/max)*100));
+    const cls = pct < 20 ? 'low' : pct < 50 ? 'mid' : 'ok';
+    return `<div class="stock-item">
+      <div class="stock-item-top">
+        <div>
+          <div class="stock-sku">${p.sku}</div>
+          <div class="stock-name">${p.name}</div>
+        </div>
+        <div style="text-align:right">
+          <div class="stock-ratio ${cls}">${total}</div>
+          <div class="stock-ratio-lbl">ชิ้นรวม</div>
+        </div>
+      </div>
+      <div class="stock-bar"><div class="stock-bar-fill ${cls}" style="width:${pct}%"></div></div>
+      <div class="stock-inputs">
+        <div class="stock-input-wrap">
+          <label>คลัง A (ชิ้น)</label>
+          <input type="number" value="${sd.actual}" min="0"
+            oninput="updateStock('${p.sku}','actual',this.value)">
+        </div>
+        <div class="stock-input-wrap">
+          <label>โกดัง B (ลัง)</label>
+          <input type="number" value="${sd.box}" min="0"
+            oninput="updateStock('${p.sku}','box',this.value)">
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function updateStock(sku, field, val) {
+  if (!stockData[sku]) stockData[sku] = {actual:0, box:0};
+  stockData[sku][field] = parseInt(val) || 0;
+}
+
+function saveStockCount() {
+  saveStock();
+  showToast('💾 บันทึกสต็อกแล้ว');
+}
+
+// ===================== PRODUCTS =====================
+let selectedProductSKUs = new Set();
+let importMode = 'csv';
+
+function setImportMode(mode) {
+  importMode = mode;
+  document.getElementById('import-mode-csv').classList.toggle('active', mode==='csv');
+  document.getElementById('import-mode-manual').classList.toggle('active', mode==='manual');
+  document.getElementById('import-csv-area').style.display = mode==='csv' ? '' : 'none';
+  document.getElementById('import-manual-area').style.display = mode==='manual' ? '' : 'none';
+}
+
+function renderProductTable() {
+  const q = (document.getElementById('prod-search').value || '').toLowerCase();
+  const filtered = products.filter(p =>
+    p.sku.toLowerCase().includes(q) || p.name.toLowerCase().includes(q)
+  );
+  const tbody = document.getElementById('products-tbody');
+  if (filtered.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;color:var(--text3);padding:24px">ไม่พบสินค้า</td></tr>`;
+    return;
+  }
+  tbody.innerHTML = filtered.map(p => {
+    const vol = (p.w*p.l*p.h).toLocaleString();
+    const sel = selectedProductSKUs.has(p.sku);
+    return `<tr>
+      <td><input type="checkbox" ${sel?'checked':''} onchange="toggleProductSelect('${p.sku}',this.checked)" style="accent-color:var(--accent);cursor:pointer"></td>
+      <td class="td-sku">${p.sku}</td>
+      <td style="font-size:13px">${p.name}</td>
+      <td class="td-dim hide-xs">${p.w}×${p.l}×${p.h}</td>
+      <td class="td-dim hide-xs">${vol}</td>
+      <td><button class="btn-sm" onclick="deleteProduct('${p.sku}')" style="color:var(--urgent);border-color:var(--urgent)">🗑</button></td>
+    </tr>`;
+  }).join('');
+  updateDeleteBar();
+}
+
+function toggleProductSelect(sku, checked) {
+  if (checked) selectedProductSKUs.add(sku);
+  else selectedProductSKUs.delete(sku);
+  updateDeleteBar();
+}
+function toggleSelectAllProducts() {
+  const cb = document.getElementById('select-all-prod');
+  products.forEach(p => { if(cb.checked) selectedProductSKUs.add(p.sku); else selectedProductSKUs.delete(p.sku); });
+  renderProductTable();
+}
+function updateDeleteBar() {
+  const bar = document.getElementById('delete-bar');
+  if (selectedProductSKUs.size > 0) {
+    bar.classList.add('show');
+    document.getElementById('del-count-label').textContent = `เลือก ${selectedProductSKUs.size} รายการ`;
+  } else {
+    bar.classList.remove('show');
+  }
+}
+function deleteProduct(sku) {
+  products = products.filter(p => p.sku !== sku);
+  saveProducts();
+  renderProductTable();
+  showToast('🗑 ลบสินค้าแล้ว');
+}
+function deleteSelectedProducts() {
+  products = products.filter(p => !selectedProductSKUs.has(p.sku));
+  selectedProductSKUs.clear();
+  saveProducts();
+  renderProductTable();
+  showToast('🗑 ลบสินค้าที่เลือกแล้ว');
+}
+
+function openAddProductModal() {
+  document.getElementById('new-sku').value = '';
+  document.getElementById('new-name').value = '';
+  document.getElementById('new-w').value = '';
+  document.getElementById('new-l').value = '';
+  document.getElementById('new-h').value = '';
+  openModal('modal-add-product');
+}
+function saveNewProduct() {
+  const sku  = document.getElementById('new-sku').value.trim().toUpperCase();
+  const name = document.getElementById('new-name').value.trim();
+  const w = parseFloat(document.getElementById('new-w').value) || 0;
+  const l = parseFloat(document.getElementById('new-l').value) || 0;
+  const h = parseFloat(document.getElementById('new-h').value) || 0;
+  if (!sku || !name) { showToast('⚠️ กรุณากรอก SKU และชื่อ'); return; }
+  if (products.find(p => p.sku === sku)) { showToast('⚠️ SKU นี้มีอยู่แล้ว'); return; }
+  products.push({sku, name, w, l, h});
+  saveProducts();
+  closeModal('modal-add-product');
+  renderProductTable();
+  showToast(`✅ เพิ่ม ${sku} แล้ว`);
+}
+
+function importCSV(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    parseAndImportCSV(e.target.result);
+    event.target.value = '';
+  };
+  reader.readAsText(file);
+}
+function importManualCSV() {
+  const text = document.getElementById('manual-csv').value;
+  parseAndImportCSV(text);
+}
+function parseAndImportCSV(text) {
+  const lines = text.split('\n').filter(l => l.trim());
+  let added = 0, skipped = 0;
+  lines.forEach(line => {
+    const parts = line.split(',').map(s => s.trim());
+    if (parts.length < 2) return;
+    const sku  = parts[0].toUpperCase();
+    const name = parts[1];
+    const w = parseFloat(parts[2]) || 0;
+    const l = parseFloat(parts[3]) || 0;
+    const h = parseFloat(parts[4]) || 0;
+    if (!sku || !name) return;
+    if (products.find(p => p.sku === sku)) { skipped++; return; }
+    products.push({sku, name, w, l, h});
+    added++;
+  });
+  saveProducts();
+  renderProductTable();
+  showToast(`✅ นำเข้า ${added} รายการ (ข้าม ${skipped})`);
+}
+
+// ===================== SCANNER (placeholder) =====================
+let scannerStream = null;
+function toggleScanner() {
+  const wrap = document.getElementById('scanner-wrap');
+  if (wrap.style.display === 'block') { stopScanner(); return; }
+  showToast('📷 ฟีเจอร์สแกนกล้องต้องใช้ HTTPS');
+  // In production: use ZXing or QuaggaJS
+}
+function stopScanner() {
+  document.getElementById('scanner-wrap').style.display = 'none';
+  if (scannerStream) { scannerStream.getTracks().forEach(t => t.stop()); scannerStream = null; }
+  document.getElementById('scan-label').textContent = 'แตะเพื่อเปิดกล้องสแกน';
+}
+
+// ===================== INIT =====================
+updatePip();
+</script>
+</body>
+</html>
