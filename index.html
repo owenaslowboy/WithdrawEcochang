@@ -108,8 +108,9 @@ input:focus{border-color:var(--accent);}
 .move-stock-btn{background:var(--purple-dim);border:1px solid var(--purple);color:var(--purple);border-radius:8px;padding:7px 10px;font-size:11px;font-weight:600;cursor:pointer;font-family:var(--sans);white-space:nowrap;}
 
 /* PICK MULTISELECT TOOLBAR */
-.pick-toolbar{display:flex;align-items:center;gap:8px;background:var(--urgent-dim);border:1px solid rgba(240,82,82,.3);border-radius:var(--r);padding:10px 14px;margin-bottom:10px;display:none;}
+.pick-toolbar{display:flex;align-items:center;gap:8px;background:var(--urgent-dim);border:1px solid rgba(240,82,82,.3);border-radius:var(--r);padding:10px 14px;margin-bottom:10px;}
 .pick-toolbar.show{display:flex;}
+.pick-toolbar:not(.show){display:none;}
 
 /* SORT BAR */
 .sort-bar{display:flex;gap:6px;margin-bottom:12px;overflow-x:auto;padding-bottom:2px;}
@@ -159,8 +160,6 @@ tr:hover td{background:var(--surface2);}
 .mode-chip.active{border-color:var(--accent);color:var(--accent);background:var(--accent-dim);}
 
 /* STOCK COUNT PAGE */
-
-
 .stock-item{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:14px;margin-bottom:8px;}
 .stock-item-top{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:10px;}
 .stock-sku{font-family:var(--mono);font-size:12px;color:var(--accent);}
@@ -319,969 +318,666 @@ tr:hover td{background:var(--surface2);}
           <input type="text" id="stock-search" placeholder="ค้นหา SKU..." oninput="renderStockList()">
         </div>
       </div>
-      <div id="stock-add-area" class="card" style="margin-bottom:10px">
-        <div class="card-label">➕ เพิ่ม SKU เข้าระบบนับ</div>
-        <div style="display:flex;gap:8px">
-          <input type="text" id="stock-sku-input" placeholder="SKU หรือสแกน..." style="flex:1">
-          <button class="btn-sm btn-primary" style="background:var(--accent);color:#fff;border:none" onclick="addStockItem()">เพิ่ม</button>
-        </div>
-      </div>
-      <div id="stock-list"></div>
+      <div id="stock-list-container"></div>
+      <button class="btn btn-success" style="margin-top:8px" onclick="saveStockCount()">💾 บันทึกสต็อก</button>
     </div>
   </div>
 
   <!-- PRODUCTS -->
   <div id="page-products" class="page">
     <div class="container">
-      <div class="ph"><h1>Products</h1><p>ข้อมูลสินค้าทั้งหมด</p></div>
-      <div class="card">
-        <div class="card-label">📂 นำเข้าข้อมูลสินค้า</div>
-        <div class="dl-row">
-          <div>
-            <div style="font-size:13px;font-weight:500">📥 ดาวน์โหลดแบบฟอร์มตัวอย่าง</div>
-            <div style="font-size:11px;color:var(--text3);margin-top:2px">sku, name, length, width, height</div>
-          </div>
-          <button class="btn-sm" onclick="downloadTemplate()">⬇ Download</button>
-        </div>
-        <div style="display:flex;gap:8px;margin-bottom:8px">
-          <button class="mode-chip active" id="mode-append" onclick="setImportMode('append')">➕ เพิ่มเข้าไป</button>
-          <button class="mode-chip" id="mode-replace" onclick="setImportMode('replace')">🔄 แทนที่ทั้งหมด</button>
-        </div>
-        <div style="font-size:11px;color:var(--text3);margin-bottom:10px" id="mode-desc">ข้อมูลใหม่จะถูกเพิ่มเข้าไป — SKU ที่ซ้ำจะถูก update</div>
-        <label class="import-area" for="excel-import">
-          <input type="file" id="excel-import" accept=".xlsx,.xls,.csv" onchange="importExcel(this)">
-          <span style="font-size:22px">📄</span>
-          <div><div style="font-size:13px;font-weight:500">เลือกไฟล์ Excel / CSV</div><div style="font-size:11px;color:var(--text3);margin-top:2px">รองรับ .xlsx, .xls, .csv</div></div>
-        </label>
-        <div id="import-status" style="font-size:12px;color:var(--success);margin-top:8px;display:none"></div>
-      </div>
+      <div class="ph"><h1>Products</h1><p>จัดการ SKU และขนาดสินค้า</p></div>
       <div class="products-toolbar">
         <div class="search-wrap" style="flex:1">
           <span class="search-icon">🔍</span>
-          <input type="text" id="product-search" placeholder="ค้นหา SKU หรือชื่อสินค้า..." oninput="renderProducts()">
+          <input type="text" id="prod-search" placeholder="ค้นหา SKU / ชื่อ..." oninput="renderProductTable()">
         </div>
+        <button class="btn-sm" onclick="openAddProductModal()" style="background:var(--accent-dim);border-color:var(--accent);color:var(--accent)">+ เพิ่ม</button>
       </div>
-      <div class="delete-bar" id="delete-toolbar">
-        <span style="font-size:13px;color:#f87171;font-weight:500" id="selected-count"></span>
-        <div style="display:flex;gap:8px">
-          <button class="btn-sm" onclick="clearSelection()">ยกเลิก</button>
-          <button class="btn-sm" onclick="deleteSelected()" style="background:var(--urgent);color:#fff;border:none">🗑 ลบ</button>
-        </div>
-      </div>
-      <div class="card" style="padding:0;overflow:hidden"><div style="overflow-x:auto;-webkit-overflow-scrolling:touch">
-        <table>
-          <thead><tr>
-            <th style="width:36px;padding-left:14px"><input type="checkbox" id="check-all" onchange="toggleAll(this)" style="cursor:pointer;accent-color:var(--accent)"></th>
-            <th>SKU</th><th class="hide-xs">ชื่อสินค้า</th><th>ยาว</th><th>กว้าง</th><th>สูง</th><th class="hide-xs">Vol</th><th></th>
-          </tr></thead>
-          <tbody id="products-tbody"></tbody>
-        </table>
-      </div></div>
-    </div>
-  </div>
-
-  <!-- DASHBOARD -->
-  <div id="page-dashboard" class="page">
-    <div class="container">
-      <div class="ph"><h1>Dashboard</h1><p>ภาพรวมการเบิกสินค้า</p></div>
-      <div class="stat-grid">
-        <div class="stat-box s-pending"><div class="stat-num" id="stat-pending">0</div><div class="stat-lbl">รอเบิก</div></div>
-        <div class="stat-box s-urgent"><div class="stat-num" id="stat-urgent">0</div><div class="stat-lbl">ด่วน</div></div>
-        <div class="stat-box s-done"><div class="stat-num" id="stat-done">0</div><div class="stat-lbl">เบิกแล้ว</div></div>
+      <div class="delete-bar" id="delete-bar">
+        <span style="font-size:13px;color:#f87171;font-weight:500" id="del-count-label"></span>
+        <button class="btn-sm" onclick="deleteSelectedProducts()" style="background:var(--urgent-dim);border-color:var(--urgent);color:var(--urgent)">🗑 ลบที่เลือก</button>
       </div>
 
-      <!-- TOP SKU CHART -->
-      <div class="card">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
-          <div class="card-label" style="margin-bottom:0">📊 เบิกมากสุด (Top SKU)</div>
-          <select id="chart-range" onchange="renderDashboard()" style="background:var(--surface2);border:1px solid var(--border2);color:var(--text2);border-radius:6px;padding:4px 8px;font-size:11px;font-family:var(--sans);outline:none">
-            <option value="7">7 วัน</option>
-            <option value="30" selected>30 วัน</option>
-            <option value="0">ทั้งหมด</option>
-          </select>
+      <!-- Import area -->
+      <div class="card" style="margin-bottom:10px">
+        <div class="card-label">📥 นำเข้าข้อมูล</div>
+        <div style="display:flex;gap:8px;margin-bottom:10px">
+          <button class="mode-chip active" id="import-mode-csv" onclick="setImportMode('csv')">CSV</button>
+          <button class="mode-chip" id="import-mode-manual" onclick="setImportMode('manual')">Manual</button>
         </div>
-        <div id="top-sku-chart"></div>
+        <div id="import-csv-area">
+          <label class="import-area" for="csv-file-input">
+            <span style="font-size:24px">📄</span>
+            <div>
+              <div style="font-size:13px;font-weight:600">เลือกไฟล์ CSV</div>
+              <div style="font-size:11px;color:var(--text3);margin-top:2px">SKU, ชื่อ, กว้าง, ยาว, สูง (cm)</div>
+            </div>
+            <input type="file" id="csv-file-input" accept=".csv" onchange="importCSV(event)">
+          </label>
+        </div>
+        <div id="import-manual-area" style="display:none">
+          <textarea id="manual-csv" style="width:100%;background:var(--bg);border:1px solid var(--border2);border-radius:var(--r);padding:11px 13px;color:var(--text);font-family:var(--mono);font-size:12px;outline:none;resize:vertical;min-height:80px" placeholder="SKU001,ชื่อสินค้า,30,20,15&#10;SKU002,สินค้าอีกชิ้น,40,30,20"></textarea>
+          <button class="btn btn-ghost" style="margin-top:8px" onclick="importManualCSV()">📥 นำเข้า</button>
+        </div>
       </div>
 
-      <div class="card"><div class="card-label">⚡ รายการด่วน</div><div id="dash-urgent-list"></div></div>
-      <div class="card">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
-          <div class="card-label" style="margin-bottom:0">🕐 เบิกล่าสุด</div>
-          <button onclick="openHistoryModal()" style="background:none;border:1px solid var(--border2);color:var(--text2);border-radius:6px;padding:4px 10px;font-size:11px;cursor:pointer;font-family:var(--sans)">ดูทั้งหมด →</button>
+      <div id="products-table-wrap">
+        <div class="card" style="padding:0;overflow:hidden">
+          <table id="products-table">
+            <thead>
+              <tr>
+                <th style="width:32px"><input type="checkbox" id="select-all-prod" onclick="toggleSelectAllProducts()" style="accent-color:var(--accent);cursor:pointer"></th>
+                <th>SKU</th>
+                <th>ชื่อสินค้า</th>
+                <th class="hide-xs">W×L×H (cm)</th>
+                <th class="hide-xs">Vol (cm³)</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="products-tbody"></tbody>
+          </table>
         </div>
-        <div id="dash-recent-list"></div>
       </div>
     </div>
   </div>
 
-</div>
-
-<!-- MODAL: ดูรายการเบิกทั้งหมด -->
-<div class="modal-overlay" id="modal-history">
-  <div class="modal" style="max-height:80vh;display:flex;flex-direction:column">
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
-      <div class="modal-title">🕐 ประวัติการเบิกทั้งหมด</div>
-      <button onclick="closeHistoryModal()" style="background:none;border:none;color:var(--text3);font-size:20px;cursor:pointer">✕</button>
-    </div>
-    <div style="margin-bottom:10px">
-      <div class="search-wrap">
-        <span class="search-icon">🔍</span>
-        <input type="text" id="history-search" placeholder="ค้นหา SKU..." oninput="renderHistoryModal()" style="padding-left:36px">
-      </div>
-    </div>
-    <div id="history-modal-list" style="overflow-y:auto;flex:1"></div>
-  </div>
 </div>
 
 <!-- BOTTOM NAV -->
 <nav class="bottom-nav">
-  <button class="bnav-btn" id="bnav-dashboard" onclick="showPage('dashboard',this)"><span class="icon">📊</span><span>Dashboard</span></button>
-  <button class="bnav-btn active" id="bnav-checkout" onclick="showPage('checkout',this)"><span class="icon">⬆</span><span>Checkout</span></button>
-  <button class="bnav-btn" id="bnav-picklist" onclick="showPage('picklist',this)"><span class="icon">📋</span><span>Pick List</span><span class="bnav-pip" id="pip-picklist"></span></button>
-  <button class="bnav-btn" id="bnav-stock" onclick="showPage('stock',this)"><span class="icon">📊</span><span>นับสต็อก</span></button>
-  <button class="bnav-btn" id="bnav-products" onclick="showPage('products',this)"><span class="icon">📦</span><span>Products</span></button>
+  <button class="bnav-btn active" id="bnav-checkout" onclick="goPage('checkout')">
+    <span class="icon">✈</span>
+    <span>Checkout</span>
+  </button>
+  <button class="bnav-btn" id="bnav-picklist" onclick="goPage('picklist')">
+    <span class="icon">📋</span>
+    <span>Pick List</span>
+    <span class="bnav-pip" id="pip-picklist"></span>
+  </button>
+  <button class="bnav-btn" id="bnav-history" onclick="goPage('history')">
+    <span class="icon">🕐</span>
+    <span>History</span>
+  </button>
+  <button class="bnav-btn" id="bnav-stock" onclick="goPage('stock')">
+    <span class="icon">📊</span>
+    <span>สต็อก</span>
+  </button>
+  <button class="bnav-btn" id="bnav-products" onclick="goPage('products')">
+    <span class="icon">📦</span>
+    <span>Products</span>
+  </button>
 </nav>
 
-<!-- MODAL: แก้ไขไซส์กล่อง -->
-<div class="modal-overlay" id="modal-boxsize">
+<!-- MODAL: Add Product -->
+<div class="modal-overlay" id="modal-add-product">
   <div class="modal">
-    <div class="modal-title">✏️ แก้ไขไซส์กล่อง</div>
-    <div class="modal-sub" id="boxsize-sku-label"></div>
-    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:16px">
-      <div>
-        <label style="font-size:11px;color:var(--text3);display:block;margin-bottom:4px">ยาว (cm)</label>
-        <input type="number" id="bs-length" min="0" step="0.1" style="text-align:center">
-      </div>
-      <div>
-        <label style="font-size:11px;color:var(--text3);display:block;margin-bottom:4px">กว้าง (cm)</label>
-        <input type="number" id="bs-width" min="0" step="0.1" style="text-align:center">
-      </div>
-      <div>
-        <label style="font-size:11px;color:var(--text3);display:block;margin-bottom:4px">สูง (cm)</label>
-        <input type="number" id="bs-height" min="0" step="0.1" style="text-align:center">
-      </div>
-    </div>
-    <div id="similar-skus-section" style="display:none">
-      <div style="font-size:12px;font-weight:600;color:var(--text2);margin-bottom:8px">
-        🔗 SKU ใกล้เคียง — ใช้ไซส์เดียวกันด้วยไหม?
-      </div>
-      <div style="font-size:11px;color:var(--text3);margin-bottom:10px">ติ๊กถูกไว้แล้ว กดยกเลิกถ้าไม่ต้องการ</div>
-      <div id="similar-skus-list"></div>
+    <div class="modal-title">➕ เพิ่มสินค้าใหม่</div>
+    <div class="modal-sub">กรอกข้อมูล SKU และขนาด</div>
+    <div class="field"><label>SKU Code *</label><input type="text" id="new-sku" placeholder="เช่น SKU001"></div>
+    <div class="field"><label>ชื่อสินค้า *</label><input type="text" id="new-name" placeholder="ชื่อสินค้า"></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:14px">
+      <div class="field" style="margin:0"><label>กว้าง (cm)</label><input type="number" id="new-w" placeholder="0" min="0"></div>
+      <div class="field" style="margin:0"><label>ยาว (cm)</label><input type="number" id="new-l" placeholder="0" min="0"></div>
+      <div class="field" style="margin:0"><label>สูง (cm)</label><input type="number" id="new-h" placeholder="0" min="0"></div>
     </div>
     <div class="modal-row">
-      <button class="btn btn-ghost" style="flex:1" onclick="closeBoxSizeModal()">ยกเลิก</button>
-      <button class="btn btn-primary" style="flex:2" onclick="saveBoxSize()">✓ บันทึก</button>
+      <button class="btn btn-ghost" onclick="closeModal('modal-add-product')">ยกเลิก</button>
+      <button class="btn btn-primary" onclick="saveNewProduct()">บันทึก</button>
     </div>
   </div>
 </div>
 
-<!-- MODAL: ยืนยันจำนวนเบิก -->
-<div class="modal-overlay" id="modal-confirm">
-  <div class="modal">
-    <div class="modal-title">ยืนยันการเบิก</div>
-    <div class="modal-sub" id="modal-item-name"></div>
-    <div style="background:var(--surface2);border-radius:var(--r);padding:12px 14px;margin-bottom:4px">
-      <div style="font-size:12px;color:var(--text3);margin-bottom:8px">จำนวนที่จะเบิก (สูงสุด: <span id="modal-max-qty"></span>)</div>
-      <div style="display:flex;align-items:center;gap:12px">
-        <button class="qty-btn" style="background:var(--surface3);border-radius:8px;width:44px;height:44px" onclick="modalAdjust(-1)">−</button>
-        <input type="number" id="modal-qty" min="1" style="text-align:center;font-size:20px;font-weight:600;font-family:var(--mono);flex:1">
-        <button class="qty-btn" style="background:var(--surface3);border-radius:8px;width:44px;height:44px" onclick="modalAdjust(1)">+</button>
-      </div>
-    </div>
-    <div style="font-size:11px;color:var(--text3);margin-bottom:4px">สามารถเบิกบางส่วนได้ — ส่วนที่เหลือจะยังอยู่ใน Pick List</div>
-    <div class="modal-row">
-      <button class="btn btn-ghost" style="flex:1" onclick="closeModal()">ยกเลิก</button>
-      <button class="btn btn-success" style="flex:2" onclick="confirmDone()">✓ ยืนยันเบิก</button>
-    </div>
-  </div>
-</div>
-
+<!-- TOAST -->
 <div id="toast"></div>
-<div id="loading-overlay" style="display:none"><div style="text-align:center"><div class="lo-spin">🔄</div><div style="font-size:14px;color:var(--text2);margin-top:8px">กำลังโหลดข้อมูล...</div></div></div>
 
-<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-<script src="https://unpkg.com/@zxing/library@0.19.1/umd/index.min.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+<!-- LOADING -->
+<div id="loading-overlay">
+  <div style="text-align:center">
+    <div class="lo-spin">⏳</div>
+    <div style="font-size:13px;color:var(--text2)">กำลังโหลด...</div>
+  </div>
+</div>
+
 <script>
-// ===== STATE =====
-const DEFAULT_PRODUCTS = [
-  {sku:'SKU-001',name:'กล่องกระดาษ A4',length:32,width:23,height:5},
-  {sku:'SKU-002',name:'หมึกปริ้นเตอร์ HP',length:20,width:15,height:10},
-  {sku:'SKU-003',name:'เก้าอี้สำนักงาน',length:65,width:65,height:95},
-  {sku:'SKU-004',name:'โต๊ะทำงาน 120cm',length:120,width:60,height:75},
-  {sku:'SKU-005',name:'คอมพิวเตอร์ AIO',length:55,width:20,height:48},
-  {sku:'SKU-006',name:'กระดาษ A4 500 แผ่น',length:30,width:22,height:5},
-];
-let products = DEFAULT_PRODUCTS;
-let picklist = [];
-let history  = [];
-// stockData: { [sku]: { name, pieceQty, pieceWithdrawn, boxQty, boxWithdrawn, piecesPerBox } }
-let stockData = {};
-let importMode = 'append';
-let selectedSKUs = new Set();
-let selectedPickIds = new Set();
-let checkoutType = 'normal';
-let selectedSKU = null;
-let sortPrimary='volume',sortSecondary='type';
-let codeReader = null;
+// ===================== DATA =====================
+let products = JSON.parse(localStorage.getItem('inv_products') || '[]');
+let pickList = JSON.parse(localStorage.getItem('inv_picklist') || '[]');
+let history  = JSON.parse(localStorage.getItem('inv_history')  || '[]');
+let stockData= JSON.parse(localStorage.getItem('inv_stock')    || '{}');
 
-let modalItemId = null;
-let pickSelectMode = false;
+// Sample products if empty
+if (products.length === 0) {
+  products = [
+    {sku:'SKU001',name:'กล่องกระดาษ A',w:30,l:20,h:15},
+    {sku:'SKU002',name:'ถุงพลาสติก B',w:40,l:30,h:5},
+    {sku:'SKU003',name:'โฟมกันกระแทก C',w:50,l:50,h:10},
+    {sku:'SKU004',name:'เทปกาว OPP',w:5,l:5,h:10},
+    {sku:'SKU005',name:'กล่องใส่เอกสาร',w:35,l:25,h:8},
+  ];
+  saveProducts();
+}
 
-// ===== FIREBASE =====
-const firebaseConfig = {
-  apiKey:"AIzaSyDZI7DqjAE4OTGYj0JPiXb-AdMmFk5gO5Q",
-  authDomain:"inventory-ecochang.firebaseapp.com",
-  projectId:"inventory-ecochang",
-  storageBucket:"inventory-ecochang.firebasestorage.app",
-  messagingSenderId:"415884460236",
-  appId:"1:415884460236:web:6ac4f7d900f0ab1c264269"
+function saveProducts(){ localStorage.setItem('inv_products', JSON.stringify(products)); }
+function savePickList(){ localStorage.setItem('inv_picklist', JSON.stringify(pickList)); }
+function saveHistory(){ localStorage.setItem('inv_history', JSON.stringify(history)); }
+function saveStock(){ localStorage.setItem('inv_stock', JSON.stringify(stockData)); }
+
+// ===================== NAVIGATION =====================
+let currentPage = 'checkout';
+const pageTitles = {
+  checkout: 'Checkout',
+  picklist: 'Pick List',
+  history:  'History',
+  stock:    'นับสต็อก',
+  products: 'Products'
 };
-firebase.initializeApp(firebaseConfig);
-const db = firebase.firestore();
-const PRODUCTS_DOC = db.collection('inventory').doc('products');
-const PICKLIST_DOC = db.collection('inventory').doc('picklist');
-const HISTORY_DOC  = db.collection('inventory').doc('history');
-const STOCK_DOC    = db.collection('inventory').doc('stock');
 
-function toSafe(arr){return arr.map(i=>({...i,time:i.time instanceof Date?i.time.toISOString():(i.time||new Date().toISOString()),doneTime:i.doneTime instanceof Date?i.doneTime.toISOString():(i.doneTime||null)}));}
-function fromSafe(arr){return(arr||[]).map(i=>({...i,time:new Date(i.time),doneTime:i.doneTime?new Date(i.doneTime):null}));}
-function saveProducts(){PRODUCTS_DOC.set({items:products}).catch(console.error);}
-function savePicklist(){PICKLIST_DOC.set({items:toSafe(picklist)}).catch(console.error);}
-function saveHistory(){HISTORY_DOC.set({items:toSafe(history)}).catch(console.error);}
-function saveStock(){STOCK_DOC.set({data:stockData}).catch(console.error);}
+function goPage(page) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.bnav-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('page-' + page).classList.add('active');
+  document.getElementById('bnav-' + page).classList.add('active');
+  document.getElementById('topbar-title').textContent = pageTitles[page];
+  currentPage = page;
 
-async function loadFromFirestore(){
-  showLoading(true);
-  try{
-    const[p,pl,h,s]=await Promise.all([PRODUCTS_DOC.get(),PICKLIST_DOC.get(),HISTORY_DOC.get(),STOCK_DOC.get()]);
-    if(p.exists) products=p.data().items||DEFAULT_PRODUCTS; else{products=DEFAULT_PRODUCTS;saveProducts();}
-    if(pl.exists) picklist=fromSafe(pl.data().items||[]);
-    if(h.exists)  history=fromSafe(h.data().items||[]);
-    if(s.exists)  stockData=s.data().data||{};
-  }catch(e){console.error(e);toast('⚠ โหลด Firebase ไม่ได้');}
-  showLoading(false);
-  renderAll();
-}
-PRODUCTS_DOC.onSnapshot(s=>{if(s.exists){products=s.data().items||[];renderProducts();renderDashboard();}});
-PICKLIST_DOC.onSnapshot(s=>{if(s.exists){picklist=fromSafe(s.data().items||[]);renderPickList();renderDashboard();updatePip();}});
-HISTORY_DOC.onSnapshot(s=>{if(s.exists){history=fromSafe(s.data().items||[]);renderHistory();renderDashboard();}});
-STOCK_DOC.onSnapshot(s=>{if(s.exists){stockData=s.data().data||{};renderStockList();}});
-loadFromFirestore();
-
-function renderAll(){renderProducts();renderPickList();renderHistory();renderDashboard();renderStockList();updatePip();}
-
-// ===== NAV =====
-const PAGE_TITLES={checkout:'Checkout',picklist:'Pick List',history:'History',products:'Products',dashboard:'Dashboard',stock:'นับสต็อก'};
-function showPage(name,btn){
-  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
-  document.querySelectorAll('.bnav-btn').forEach(b=>b.classList.remove('active'));
-  document.getElementById('page-'+name).classList.add('active');
-  if(btn)btn.classList.add('active');
-  document.getElementById('topbar-title').textContent=PAGE_TITLES[name]||name;
-  stopScanner();
-  if(name==='picklist')renderPickList();
-  if(name==='history')renderHistory();
-  if(name==='products')renderProducts();
-  if(name==='dashboard')renderDashboard();
-  if(name==='stock')renderStockList();
-}
-function updatePip(){
-  const pip=document.getElementById('pip-picklist');
-  if(picklist.length>0){pip.style.display='flex';pip.textContent=picklist.length>9?'9+':picklist.length;}
-  else pip.style.display='none';
+  if (page === 'picklist') renderPickList();
+  if (page === 'history')  renderHistory();
+  if (page === 'stock')    renderStockList();
+  if (page === 'products') renderProductTable();
+  updatePip();
 }
 
-// ===== SCANNER =====
-function toggleScanner(){
-  const wrap=document.getElementById('scanner-wrap');
-  if(wrap.style.display==='block'){stopScanner();return;}
-  wrap.style.display='block';
-  document.getElementById('scan-label').textContent='กำลังเปิดกล้อง...';
-  try{
-    codeReader=new ZXing.BrowserMultiFormatReader();
-    codeReader.decodeFromVideoDevice(null,'scanner-video',(result,err)=>{
-      if(result){
-        const code=result.getText();
-        document.getElementById('sku-input').value=code;
-        const match=products.find(p=>p.sku===code);
-        if(match){selectSKU(code);toast('✓ สแกนได้: '+code);}
-        else toast('⚠ '+code+' — ไม่พบใน Products');
-        stopScanner();
-      }
-    });
-    document.getElementById('scan-label').textContent='กล้องเปิดอยู่ — หันไปที่บาร์โค้ด';
-  }catch(e){toast('❌ เปิดกล้องไม่ได้');stopScanner();}
-}
-function stopScanner(){
-  if(codeReader){codeReader.reset();codeReader=null;}
-  document.getElementById('scanner-wrap').style.display='none';
-  document.getElementById('scan-label').textContent='แตะเพื่อเปิดกล้องสแกน';
+function updatePip() {
+  const pip = document.getElementById('pip-picklist');
+  if (pickList.length > 0) {
+    pip.style.display = 'flex';
+    pip.textContent = pickList.length;
+  } else {
+    pip.style.display = 'none';
+  }
 }
 
-// ===== SKU DROPDOWN =====
-function filterSKU(){
-  const val=document.getElementById('sku-input').value.toLowerCase();
-  const dd=document.getElementById('sku-dropdown');
-  selectedSKU=null;document.getElementById('selected-info').style.display='none';
-  if(!val){dd.classList.remove('open');return;}
-  const filtered=products.filter(p=>p.sku.toLowerCase().includes(val)||p.name.toLowerCase().includes(val));
-  if(!filtered.length){dd.classList.remove('open');return;}
-  dd.innerHTML=filtered.slice(0,8).map(p=>`
-    <div class="dd-item" onmousedown="selectSKU('${p.sku}')">
-      <div><span class="dd-sku">${p.sku}</span><div class="dd-name">${p.name}</div></div>
-      <span class="dd-dims">${p.length}×${p.width}×${p.height}</span>
-    </div>`).join('');
+// ===================== TOAST =====================
+let toastTimer;
+function showToast(msg, duration=2000) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.style.display = 'block';
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { t.style.display='none'; }, duration);
+}
+
+// ===================== MODAL =====================
+function openModal(id)  { document.getElementById(id).classList.add('open'); }
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+
+// ===================== SKU DROPDOWN =====================
+let selectedSKU = null;
+let checkoutType = 'normal';
+
+function filterSKU() {
+  const q = document.getElementById('sku-input').value.toLowerCase();
+  const dd = document.getElementById('sku-dropdown');
+  selectedSKU = null;
+  document.getElementById('selected-info').style.display = 'none';
+
+  if (!q) { dd.classList.remove('open'); return; }
+
+  const matches = products.filter(p =>
+    p.sku.toLowerCase().includes(q) || p.name.toLowerCase().includes(q)
+  ).slice(0, 8);
+
+  if (matches.length === 0) { dd.classList.remove('open'); return; }
+
+  dd.innerHTML = matches.map(p => {
+    const vol = (p.w * p.l * p.h).toLocaleString();
+    return `<div class="dd-item" onmousedown="selectSKU('${p.sku}')">
+      <div>
+        <div class="dd-sku">${p.sku}</div>
+        <div class="dd-name">${p.name}</div>
+      </div>
+      <div class="dd-dims">${p.w}×${p.l}×${p.h}</div>
+    </div>`;
+  }).join('');
   dd.classList.add('open');
 }
-function selectSKU(sku){
-  const p=products.find(x=>x.sku===sku);if(!p)return;
-  selectedSKU=p;
-  document.getElementById('sku-input').value=sku;
+
+function selectSKU(sku) {
+  const p = products.find(x => x.sku === sku);
+  if (!p) return;
+  selectedSKU = p;
+  document.getElementById('sku-input').value = sku;
   document.getElementById('sku-dropdown').classList.remove('open');
-  document.getElementById('sel-name').textContent=p.name;
-  document.getElementById('sel-dims').textContent=`📦 ${p.length} × ${p.width} × ${p.height} cm`;
-  document.getElementById('selected-info').style.display='block';
-}
-function closeDropdownDelay(){setTimeout(()=>document.getElementById('sku-dropdown').classList.remove('open'),200);}
-
-// ===== TYPE =====
-function setType(t){
-  checkoutType=t;
-  document.getElementById('type-normal').classList.toggle('active',t==='normal');
-  document.getElementById('type-normal').classList.remove('urgent');
-  document.getElementById('type-urgent').classList.toggle('active',t==='urgent');
-  if(t==='urgent')document.getElementById('type-urgent').classList.add('urgent');
+  document.getElementById('sel-name').textContent = p.name;
+  document.getElementById('sel-dims').textContent =
+    `${p.w} × ${p.l} × ${p.h} cm  |  Vol: ${(p.w*p.l*p.h).toLocaleString()} cm³`;
+  document.getElementById('selected-info').style.display = 'block';
 }
 
-// ===== ADD TO PICKLIST =====
-function addToPickList(){
-  const skuVal=document.getElementById('sku-input').value.trim();
-  const qty=parseInt(document.getElementById('qty-input').value)||1;
-  let p=selectedSKU||products.find(x=>x.sku===skuVal);
-  if(!p){if(!skuVal){toast('⚠ กรุณากรอก SKU');return;}p={sku:skuVal,name:skuVal,length:0,width:0,height:0};}
-  picklist.push({id:Date.now(),sku:p.sku,name:p.name,length:p.length,width:p.width,height:p.height,qty,type:checkoutType,time:new Date(),volume:p.length*p.width});
-  toast(`✓ เพิ่ม ${p.sku} × ${qty}`);
-  document.getElementById('sku-input').value='';
-  document.getElementById('qty-input').value=1;
-  document.getElementById('selected-info').style.display='none';
-  selectedSKU=null;checkoutType='normal';setType('normal');
-  savePicklist();updatePip();
+function closeDropdownDelay() {
+  setTimeout(() => document.getElementById('sku-dropdown').classList.remove('open'), 200);
 }
 
-// ===== PICKLIST SORT =====
-// Sort: primary key + secondary key
-// sortPrimary & sortSecondary declared above
-// dir: -1=desc, 1=asc per key
-const sortDirMap={volume:-1,sku:1,time:-1,type:1};
+function setType(type) {
+  checkoutType = type;
+  document.getElementById('type-normal').classList.toggle('active', type==='normal');
+  document.getElementById('type-urgent').classList.toggle('active', type==='urgent');
+}
 
-function sortList(key){
-  if(sortPrimary===key){
-    // Toggle direction of primary
-    sortDirMap[key]*=-1;
-  } else if(sortSecondary===key){
-    // Promote secondary to primary, old primary becomes secondary
-    sortSecondary=sortPrimary;
-    sortPrimary=key;
-  } else {
-    // New key: secondary becomes old primary, new key is primary
-    sortSecondary=sortPrimary;
-    sortPrimary=key;
+function addToPickList() {
+  if (!selectedSKU) {
+    // try match by SKU text
+    const val = document.getElementById('sku-input').value.trim().toUpperCase();
+    const found = products.find(p => p.sku.toUpperCase() === val);
+    if (found) { selectSKU(found.sku); return; }
+    showToast('⚠️ กรุณาเลือก SKU ก่อน'); return;
   }
-  updateSortChips();
+  const qty = parseInt(document.getElementById('qty-input').value) || 1;
+  const item = {
+    id: Date.now(),
+    sku: selectedSKU.sku,
+    name: selectedSKU.name,
+    w: selectedSKU.w, l: selectedSKU.l, h: selectedSKU.h,
+    qty,
+    type: checkoutType,
+    time: Date.now()
+  };
+  pickList.push(item);
+  savePickList();
+  updatePip();
+  showToast(`✅ เพิ่ม ${selectedSKU.sku} ×${qty} แล้ว`);
+  // reset
+  document.getElementById('sku-input').value = '';
+  document.getElementById('selected-info').style.display = 'none';
+  document.getElementById('qty-input').value = '1';
+  selectedSKU = null;
+  setType('normal');
+}
+
+// ===================== PICK LIST =====================
+let currentSort = 'volume';
+let selectedPickIds = new Set();
+
+function sortList(mode) {
+  currentSort = mode;
+  document.querySelectorAll('.sort-chip').forEach(c => c.classList.remove('active'));
+  document.getElementById('sort-' + mode).classList.add('active');
   renderPickList();
 }
 
-function cmpByKey(a,b,key){
-  const d=sortDirMap[key];
-  if(key==='volume') return d===-1?(b.volume-a.volume):(a.volume-b.volume);
-  if(key==='sku')    return d===1?a.sku.localeCompare(b.sku):b.sku.localeCompare(a.sku);
-  if(key==='time')   return d===-1?(b.time-a.time):(a.time-b.time);
-  if(key==='type'){
-    const ua=a.type==='urgent'?0:1, ub=b.type==='urgent'?0:1;
-    return d===1?(ua-ub):(ub-ua);
+function getSortedPickList() {
+  const list = [...pickList];
+  if (currentSort === 'volume') {
+    list.sort((a,b) => (b.w*b.l*b.h*b.qty) - (a.w*a.l*a.h*a.qty));
+  } else if (currentSort === 'type') {
+    list.sort((a,b) => (a.type==='urgent'?0:1) - (b.type==='urgent'?0:1));
+  } else if (currentSort === 'sku') {
+    list.sort((a,b) => a.sku.localeCompare(b.sku));
+  } else if (currentSort === 'time') {
+    list.sort((a,b) => b.time - a.time);
   }
-  return 0;
+  return list;
 }
 
-function getSorted(){
-  return[...picklist].sort((a,b)=>{
-    const p=cmpByKey(a,b,sortPrimary);
-    if(p!==0) return p;
-    return cmpByKey(a,b,sortSecondary);
-  });
-}
-
-function updateSortChips(){
-  const labels={
-    volume:'📦 Volume',
-    type:'⚡ ด่วน',
-    sku:'🔤 SKU',
-    time:'🕐 เวลา',
-  };
-  const arrows={
-    volume:sortDirMap.volume===-1?' ↓':' ↑',
-    sku:sortDirMap.sku===1?' A↑':' Z↑',
-    time:sortDirMap.time===-1?' ใหม่':' เก่า',
-    type:sortDirMap.type===1?' ด่วน↑':' ปกติ↑',
-  };
-  ['volume','type','sku','time'].forEach(key=>{
-    const elId='sort-'+(key==='volume'?'vol':key);
-    const el=document.getElementById(elId);
-    if(!el) return;
-    const isPrimary=sortPrimary===key;
-    const isSecondary=sortSecondary===key;
-    el.textContent=labels[key]+(isPrimary?arrows[key]:isSecondary?' 2':'');
-    el.classList.toggle('active',isPrimary);
-    el.style.opacity=isSecondary?'0.7':'1';
-    el.style.borderStyle=isSecondary?'dashed':'solid';
-  });
-}
-
-// ===== PICK MULTISELECT =====
-function startPickSelect(id){
-  pickSelectMode=true;
-  selectedPickIds.add(id);
-  renderPickList();
-}
-function togglePickSelect(id){
-  if(!pickSelectMode)return;
-  if(selectedPickIds.has(id))selectedPickIds.delete(id);
-  else selectedPickIds.add(id);
-  if(selectedPickIds.size===0)pickSelectMode=false;
-  renderPickList();
-}
-function clearPickSelection(){
-  pickSelectMode=false;selectedPickIds.clear();renderPickList();
-}
-function deleteSelectedPick(){
-  if(!selectedPickIds.size)return;
-  if(!confirm(`🗑 ลบ ${selectedPickIds.size} รายการออกจาก Pick List?`))return;
-  picklist=picklist.filter(i=>!selectedPickIds.has(i.id));
-  selectedPickIds.clear();pickSelectMode=false;
-  toast('✓ ลบรายการที่เลือกแล้ว');
-  savePicklist();renderPickList();updatePip();
-}
-function moveSelectedToStock(){
-  const items=picklist.filter(i=>selectedPickIds.has(i.id));
-  if(!items.length)return;
-  items.forEach(item=>{
-    if(!stockData[item.sku]){
-      stockData[item.sku]={name:item.name,totalQty:0,withdrawn:0};
-    }
-  });
-  saveStock();
-  clearPickSelection();
-  showPage('stock',document.getElementById('bnav-stock'));
-  toast(`✓ ย้าย ${items.length} SKU ไปหน้านับสต็อกแล้ว`);
-}
-
-// ===== RENDER PICKLIST =====
-function attachPickEvents(){
-  document.querySelectorAll('[id^="pick-card-"]').forEach(card=>{
-    const id=parseInt(card.id.replace('pick-card-',''));
-    let moved=false;
-
-    card.addEventListener('touchstart', e=>{
-      if(e.target.closest('button'))return;
-      moved=false;
-      _lpTimer=setTimeout(()=>{
-        if(!moved){ startPickSelect(id); navigator.vibrate&&navigator.vibrate(40); }
-      },500);
-    },{passive:true});
-
-    card.addEventListener('touchmove', ()=>{
-      moved=true; clearTimeout(_lpTimer);
-    },{passive:true});
-
-    card.addEventListener('touchend', e=>{
-      clearTimeout(_lpTimer);
-      if(e.target.closest('button'))return;
-      if(!moved && pickSelectMode) togglePickSelect(id);
-    });
-
-    // Desktop
-    card.addEventListener('mousedown', e=>{
-      if(e.target.closest('button'))return;
-      moved=false;
-      _lpTimer=setTimeout(()=>{
-        if(!moved) startPickSelect(id);
-      },500);
-    });
-    card.addEventListener('mousemove', ()=>{ moved=true; });
-    card.addEventListener('mouseup', e=>{
-      clearTimeout(_lpTimer);
-      if(e.target.closest('button'))return;
-      if(!moved && pickSelectMode) togglePickSelect(id);
-    });
-  });
-}
-
-function renderPickList(){
-  const el=document.getElementById('picklist-container');
-  const toolbar=document.getElementById('pick-toolbar');
-  if(!picklist.length){el.innerHTML='<div class="empty"><div class="empty-icon">📋</div>ยังไม่มีรายการ</div>';toolbar.classList.remove('show');return;}
-  toolbar.classList.toggle('show',pickSelectMode&&selectedPickIds.size>0);
-  if(pickSelectMode&&selectedPickIds.size>0)document.getElementById('pick-sel-count').textContent=`เลือก ${selectedPickIds.size} รายการ`;
-  el.innerHTML=getSorted().map(item=>{
-    const sel=selectedPickIds.has(item.id);
-    return`<div class="pick-item${item.type==='urgent'?' is-urgent':''}${sel?' selected':''}" id="pick-card-${item.id}">
-      <div style="display:flex;align-items:flex-start;gap:10px">
-        <div style="flex:1">
-          <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
-            <span class="pick-sku">${item.sku}</span>
-            <span class="badge ${item.type}">${item.type==='urgent'?'⚡ ด่วน':'🔄 ปกติ'}</span>
-            ${sel?'<span style="font-size:16px;color:var(--accent)">✓</span>':''}
+function renderPickList() {
+  const c = document.getElementById('picklist-container');
+  const sorted = getSortedPickList();
+  if (sorted.length === 0) {
+    c.innerHTML = `<div class="empty"><div class="empty-icon">📋</div>ยังไม่มีรายการ<br>ไปที่ Checkout เพื่อเบิกสินค้า</div>`;
+    return;
+  }
+  c.innerHTML = sorted.map(item => {
+    const vol = (item.w * item.l * item.h * item.qty).toLocaleString();
+    const sel = selectedPickIds.has(item.id) ? 'selected' : '';
+    const urg = item.type === 'urgent' ? 'is-urgent' : '';
+    return `<div class="pick-item ${urg} ${sel}" id="pick-${item.id}"
+      oncontextmenu="return false"
+      ontouchstart="pickTouchStart(${item.id})" ontouchend="pickTouchEnd()"
+      onclick="pickItemClick(${item.id})">
+      <div style="display:flex;align-items:center;justify-content:space-between">
+        <div>
+          <div class="pick-sku">${item.sku}
+            ${item.type==='urgent' ? '<span class="badge urgent" style="margin-left:6px">⚡ ด่วน</span>' : ''}
           </div>
           <div class="pick-name">${item.name}</div>
-          <div class="pick-dims" style="margin:5px 0"><span>L:${item.length}</span><span>W:${item.width}</span><span>H:${item.height}</span>cm</div>
-          <div class="pick-vol">${item.volume>0?'พื้นที่: '+item.volume.toLocaleString()+' cm²':''} · ${fmtTime(item.time)}</div>
+          <div class="pick-dims">
+            <span>${item.w}</span><span>${item.l}</span><span>${item.h}</span> cm
+          </div>
+          <div class="pick-vol">Vol: ${vol} cm³</div>
         </div>
       </div>
-      ${!pickSelectMode?`<div class="pick-bottom">
+      <div class="pick-bottom">
         <div class="qty-control">
-          <button class="qty-btn" onclick="adjustQty(event,${item.id},-1)">−</button>
-          <span class="qty-val" id="qty-${item.id}">${item.qty}</span>
-          <button class="qty-btn" onclick="adjustQty(event,${item.id},+1)">+</button>
+          <button class="qty-btn" onclick="changePickQty(event,${item.id},-1)">−</button>
+          <div class="qty-val" id="qv-${item.id}">${item.qty}</div>
+          <button class="qty-btn" onclick="changePickQty(event,${item.id},1)">+</button>
         </div>
-        <button class="move-stock-btn" onclick="moveSingleToStock(event,'${item.sku}','${item.name}')">📊</button>
-        <button class="done-btn" onclick="requestMarkDone(event,${item.id})">✓ เบิก</button>
-      </div>`:''}
-    </div>`;}).join('');
-  attachPickEvents();
+        <button class="move-stock-btn" onclick="moveOneToStock(event,${item.id})">📊 สต็อก</button>
+        <button class="done-btn" onclick="markDone(event,${item.id})">✓ เบิกแล้ว</button>
+      </div>
+    </div>`;
+  }).join('');
+  updatePickToolbar();
 }
 
-// Long press handlers - use addEventListener after render
-let _lpTimer=null;
+let pickHoldTimer = null;
+let pickSelectMode = false;
 
-
-function moveSingleToStock(e,sku,name){
-  e.stopPropagation();
-  if(!stockData[sku])stockData[sku]={name,totalQty:0,withdrawn:0};
+function pickTouchStart(id) {
+  pickHoldTimer = setTimeout(() => {
+    pickSelectMode = true;
+    togglePickSelect(id);
+  }, 500);
+}
+function pickTouchEnd() {
+  clearTimeout(pickHoldTimer);
+}
+function pickItemClick(id) {
+  if (pickSelectMode) togglePickSelect(id);
+}
+function clearPickSelection() {
+  selectedPickIds.clear();
+  pickSelectMode = false;
+  renderPickList();
+}
+function togglePickSelect(id) {
+  if (selectedPickIds.has(id)) selectedPickIds.delete(id);
+  else selectedPickIds.add(id);
+  renderPickList();
+}
+function clearPickSelection() {
+  selectedPickIds.clear();
+  renderPickList();
+}
+function updatePickToolbar() {
+  const tb = document.getElementById('pick-toolbar');
+  if (selectedPickIds.size > 0) {
+    tb.classList.add('show');
+    document.getElementById('pick-sel-count').textContent = `เลือก ${selectedPickIds.size} รายการ`;
+  } else {
+    tb.classList.remove('show');
+  }
+}
+function deleteSelectedPick() {
+  pickList = pickList.filter(p => !selectedPickIds.has(p.id));
+  selectedPickIds.clear();
+  savePickList();
+  updatePip();
+  renderPickList();
+  showToast('🗑 ลบรายการที่เลือกแล้ว');
+}
+function moveSelectedToStock() {
+  const toMove = pickList.filter(p => selectedPickIds.has(p.id));
+  toMove.forEach(item => {
+    if (!stockData[item.sku]) stockData[item.sku] = {actual:0, box:0};
+  });
+  selectedPickIds.clear();
   saveStock();
-  showPage('stock',document.getElementById('bnav-stock'));
-  toast(`✓ Copy SKU ${sku} ไปนับสต็อกแล้ว`);
+  renderPickList();
+  showToast('📊 ย้ายไปหน้านับสต็อกแล้ว');
 }
 
-// ===== ADJUST QTY =====
-function adjustQty(e,id,delta){
+function changePickQty(e, id, delta) {
   e.stopPropagation();
-  const item=picklist.find(i=>i.id===id);if(!item)return;
-  item.qty=Math.max(1,item.qty+delta);
-  const el=document.getElementById('qty-'+id);
-  if(el)el.textContent=item.qty;
-  savePicklist();
+  const item = pickList.find(p => p.id === id);
+  if (!item) return;
+  item.qty = Math.max(1, item.qty + delta);
+  document.getElementById('qv-' + id).textContent = item.qty;
+  savePickList();
 }
 
-// ===== MODAL CONFIRM =====
-function requestMarkDone(e,id){
+function markDone(e, id) {
   e.stopPropagation();
-  const item=picklist.find(i=>i.id===id);if(!item)return;
-  if(item.qty<=1){markDone(id,item.qty);return;} // qty=1 ไม่ต้อง confirm
-  modalItemId=id;
-  document.getElementById('modal-item-name').textContent=`${item.sku} — ${item.name}`;
-  document.getElementById('modal-max-qty').textContent=item.qty;
-  document.getElementById('modal-qty').value=item.qty;
-  document.getElementById('modal-qty').max=item.qty;
-  document.getElementById('modal-confirm').classList.add('open');
-}
-function modalAdjust(delta){
-  const input=document.getElementById('modal-qty');
-  const item=picklist.find(i=>i.id===modalItemId);
-  if(!item)return;
-  input.value=Math.min(item.qty,Math.max(1,parseInt(input.value||1)+delta));
-}
-function closeModal(){document.getElementById('modal-confirm').classList.remove('open');modalItemId=null;}
-function confirmDone(){
-  if(!modalItemId)return;
-  const withdrawQty=parseInt(document.getElementById('modal-qty').value)||1;
-  const item=picklist.find(i=>i.id===modalItemId);
-  if(!item){closeModal();return;}
-  markDone(modalItemId,withdrawQty);
-  closeModal();
-}
-function markDone(id,withdrawQty){
-  const idx=picklist.findIndex(i=>i.id===id);if(idx<0)return;
-  const item=picklist[idx];
-  const actualQty=Math.min(withdrawQty,item.qty);
-  if(actualQty<item.qty){
-    // เบิกบางส่วน — อัปเดต qty ที่เหลือ
-    picklist[idx]={...item,qty:item.qty-actualQty};
-    const doneItem={...item,qty:actualQty,doneTime:new Date()};
-    history.unshift(doneItem);
-    // อัปเดตสต็อก
-    updateStockWithdrawn(item.sku,actualQty);
-    toast(`✓ เบิก ${item.sku} × ${actualQty} (เหลือ ${item.qty-actualQty})`);
-  }else{
-    picklist.splice(idx,1);
-    const doneItem={...item,qty:actualQty,doneTime:new Date()};
-    history.unshift(doneItem);
-    updateStockWithdrawn(item.sku,actualQty);
-    toast(`✓ เบิก ${item.sku} เรียบร้อย`);
-  }
-  savePicklist();saveHistory();saveStock();renderPickList();updatePip();
-}
-function updateStockWithdrawn(sku,qty){
-  if(stockData[sku]){
-    stockData[sku].withdrawn=(stockData[sku].withdrawn||0)+qty;
-  }
+  const idx = pickList.findIndex(p => p.id === id);
+  if (idx === -1) return;
+  const item = pickList[idx];
+  history.unshift({...item, doneTime: Date.now()});
+  pickList.splice(idx, 1);
+  savePickList();
+  saveHistory();
+  updatePip();
+  renderPickList();
+  showToast('✅ บันทึกการเบิกแล้ว');
 }
 
-// ===== HISTORY =====
-function clearHistory(){
-  if(!history.length){toast('ไม่มี History');return;}
-  if(!confirm(`🗑 ล้าง History ทั้งหมด ${history.length} รายการ?`))return;
-  history=[];saveHistory();renderHistory();renderDashboard();toast('✓ ล้าง History แล้ว');
+function moveOneToStock(e, id) {
+  e.stopPropagation();
+  const item = pickList.find(p => p.id === id);
+  if (!item) return;
+  if (!stockData[item.sku]) stockData[item.sku] = {actual:0, box:0};
+  saveStock();
+  showToast(`📊 เพิ่ม ${item.sku} ในหน้านับสต็อก`);
 }
 
-function renderHistory(){
-  const el=document.getElementById('history-container');
-  if(!history.length){el.innerHTML='<div class="empty"><div class="empty-icon">🕐</div>ยังไม่มีประวัติ</div>';return;}
-  el.innerHTML=history.map(item=>`
-    <div class="history-item">
-      <span class="hi-check">✓</span>
+// ===================== HISTORY =====================
+function renderHistory() {
+  const c = document.getElementById('history-container');
+  if (history.length === 0) {
+    c.innerHTML = `<div class="empty"><div class="empty-icon">🕐</div>ยังไม่มีประวัติการเบิก</div>`;
+    return;
+  }
+  c.innerHTML = history.map(item => {
+    const d = new Date(item.doneTime);
+    const timeStr = `${d.getHours().toString().padStart(2,'0')}:${d.getMinutes().toString().padStart(2,'0')}`;
+    const dateStr = `${d.getDate()}/${d.getMonth()+1}`;
+    return `<div class="history-item">
+      <div class="hi-check">✓</div>
       <div class="hi-info">
-        <div style="display:flex;gap:8px;align-items:center"><span class="hi-sku">${item.sku}</span><span class="badge ${item.type}">${item.type==='urgent'?'⚡':'🔄'}</span><span style="font-family:var(--mono);font-size:11px;color:var(--text3)">×${item.qty}</span></div>
+        <div class="hi-sku">${item.sku} ×${item.qty}</div>
+        <div class="hi-name">${item.name}</div>
       </div>
-      <div class="hi-time">${fmtTime(item.doneTime)}</div>
-    </div>`).join('');
-}
-
-// ===== STOCK COUNT =====
-
-
-function addStockItem(){
-  const sku=document.getElementById('stock-sku-input').value.trim();
-  if(!sku){toast('⚠ กรุณากรอก SKU');return;}
-  const prod=products.find(p=>p.sku===sku);
-  const name=prod?prod.name:sku;
-  if(!stockData[sku])stockData[sku]={name,totalQty:0,withdrawn:0};
-  document.getElementById('stock-sku-input').value='';
-  saveStock();toast(`✓ เพิ่ม ${sku} เข้าระบบนับสต็อก`);
-}
-
-function updateStockField(sku,field,val){
-  if(!stockData[sku])return;
-  stockData[sku][field]=parseFloat(val)||0;
-  saveStock();
-  // update ratio display
-  const ratioEl=document.getElementById('ratio-'+sku.replace(/[^a-zA-Z0-9]/g,'_'));
-  if(ratioEl)ratioEl.textContent=getStockRatio(sku);
-  updateStockBar(sku);
-}
-
-function getStockRatio(sku){
-  const s=stockData[sku];if(!s)return'—';
-  return`${s.withdrawn||0}/${s.totalQty||0}`;
-}
-
-function getStockPct(sku){
-  const s=stockData[sku];if(!s)return 0;
-  const t=s.totalQty||0;if(!t)return 0;
-  return Math.min(100,(s.withdrawn||0)/t*100);
-}
-
-function updateStockBar(sku){
-  const pct=getStockPct(sku);
-  const safeId=sku.replace(/[^a-zA-Z0-9]/g,'_');
-  const bar=document.getElementById('bar-'+safeId);
-  if(!bar)return;
-  bar.style.width=pct+'%';
-  bar.className='stock-bar-fill '+(pct>80?'low':pct>50?'mid':'ok');
-}
-
-function renderStockList(){
-  const el=document.getElementById('stock-list');
-  if(!el)return;
-  const q=(document.getElementById('stock-search')?.value||'').toLowerCase();
-  const keys=Object.keys(stockData).filter(sku=>sku.toLowerCase().includes(q)||(stockData[sku].name||'').toLowerCase().includes(q));
-  if(!keys.length){el.innerHTML='<div class="empty"><div class="empty-icon">📊</div>ยังไม่มีสต็อก<br><small style="font-size:12px;margin-top:8px;display:block">เพิ่ม SKU ด้านบน หรือย้ายจาก Pick List</small></div>';return;}
-  el.innerHTML=keys.map(sku=>{
-    const s=stockData[sku];
-    const safeId=sku.replace(/[^a-zA-Z0-9]/g,'_');
-    const pct=getStockPct(sku);
-    const barClass=pct>80?'low':pct>50?'mid':'ok';
-    const ratioClass=pct>80?' low':pct<30?' ok':'';
-    return`<div class="stock-item">
-      <div class="stock-item-top">
-        <div><div class="stock-sku">${sku}</div><div class="stock-name">${s.name||''}</div></div>
-        <div style="text-align:right">
-          <div class="stock-ratio${ratioClass}" id="ratio-${safeId}">${getStockRatio(sku)}</div>
-          <div class="stock-ratio-lbl">เบิก / สต็อก</div>
-        </div>
-      </div>
-      <div class="stock-bar"><div class="stock-bar-fill ${barClass}" id="bar-${safeId}" style="width:${pct}%"></div></div>
-      <div class="stock-inputs">
-        <div class="stock-input-wrap">
-          <label>สต็อกทั้งหมด (โกดัง B)</label>
-          <input type="number" value="${s.totalQty||0}" min="0" onchange="updateStockField('${sku}','totalQty',this.value)">
-        </div>
-        <div class="stock-input-wrap">
-          <label>เบิกไปแล้ว</label>
-          <input type="number" value="${s.withdrawn||0}" min="0" onchange="updateStockField('${sku}','withdrawn',this.value)">
-        </div>
-      </div>
-      <button onclick="deleteStockItem('${sku}')" style="margin-top:10px;background:none;border:none;color:var(--text3);font-size:11px;cursor:pointer;font-family:var(--sans)">🗑 ลบออกจากระบบนับ</button>
+      <div class="hi-time">${dateStr}<br>${timeStr}</div>
     </div>`;
   }).join('');
 }
 
-function deleteStockItem(sku){
-  if(!confirm(`ลบ ${sku} ออกจากระบบนับสต็อก?`))return;
-  delete stockData[sku];
-  saveStock();toast('✓ ลบแล้ว');
+function clearHistory() {
+  if (!confirm('ล้างประวัติทั้งหมด?')) return;
+  history = [];
+  saveHistory();
+  renderHistory();
 }
 
-// ===== IMPORT MODE =====
-function setImportMode(mode){
-  importMode=mode;
-  document.getElementById('mode-append').classList.toggle('active',mode==='append');
-  document.getElementById('mode-replace').classList.toggle('active',mode==='replace');
-  const d=document.getElementById('mode-desc');
-  d.textContent=mode==='append'?'ข้อมูลใหม่จะถูกเพิ่มเข้าไป — SKU ที่ซ้ำจะถูก update':'⚠ ข้อมูลเดิมทั้งหมดจะถูกแทนที่';
-  d.style.color=mode==='replace'?'var(--urgent)':'var(--text3)';
-}
-function downloadTemplate(){
-  const csv=['sku,name,length,width,height','SKU-001,ชื่อสินค้า A,30,20,10','SKU-002,ชื่อสินค้า B,50,40,30'].join('\n');
-  const a=document.createElement('a');
-  a.href=URL.createObjectURL(new Blob(['\uFEFF'+csv],{type:'text/csv;charset=utf-8;'}));
-  a.download='product_template.csv';a.click();
-}
-function importExcel(input){
-  const file=input.files[0];if(!file)return;
-  if(importMode==='replace'&&!confirm(`⚠ แทนที่ข้อมูลทั้งหมด ${products.length} รายการ?`)){input.value='';return;}
-  const reader=new FileReader();
-  reader.onload=e=>{
-    try{
-      const wb=XLSX.read(new Uint8Array(e.target.result),{type:'array',sheetRows:0,cellDates:true});
-      const rows=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{defval:''});
-      let added=0,updated=0;
-      if(importMode==='replace')products=[];
-      rows.forEach(row=>{
-        const sku=(row.sku||row.SKU||row['SKU Code']||'').toString().trim();
-        if(!sku)return;
-        const item={sku,name:(row.name||row.Name||row['ชื่อสินค้า']||sku).toString().trim(),
-          length:parseFloat(row.length||row.Length||row['ยาว']||0),
-          width:parseFloat(row.width||row.Width||row['กว้าง']||0),
-          height:parseFloat(row.height||row.Height||row['สูง']||0)};
-        const idx=products.findIndex(p=>p.sku===sku);
-        if(idx>=0){products[idx]=item;updated++;}else{products.push(item);added++;}
-      });
-      const s=document.getElementById('import-status');
-      s.style.display='block';s.style.color='var(--success)';
-      s.textContent=importMode==='replace'?`✓ แทนที่ ${added} รายการ`:`✓ เพิ่ม ${added}, อัปเดต ${updated}`;
-      toast(importMode==='replace'?`✓ แทนที่ ${added} รายการ`:`✓ Import ${added+updated} รายการ`);
-      input.value='';saveProducts();renderProducts();
-    }catch{toast('❌ อ่านไฟล์ไม่ได้');}
-  };
-  reader.readAsArrayBuffer(file);
-}
-
-// ===== PRODUCTS =====
-function renderProducts(){
-  const q=(document.getElementById('product-search')?.value||'').toLowerCase();
-  const filtered=products.filter(p=>p.sku.toLowerCase().includes(q)||p.name.toLowerCase().includes(q));
-  const tbody=document.getElementById('products-tbody');
-  if(!filtered.length){tbody.innerHTML='<tr><td colspan="7" style="text-align:center;color:var(--text3);padding:24px">ไม่พบสินค้า</td></tr>';return;}
-  tbody.innerHTML=filtered.map(p=>{
-    const vol=p.length*p.width;
-    return`<tr style="${selectedSKUs.has(p.sku)?'background:rgba(79,142,247,.06)':''}">
-      <td style="padding-left:14px"><input type="checkbox" ${selectedSKUs.has(p.sku)?'checked':''} onchange="toggleSKU('${p.sku}',this)" style="cursor:pointer;accent-color:var(--accent)"></td>
-      <td class="td-sku">${p.sku}</td><td class="hide-xs">${p.name}</td>
-      <td class="td-dim">${p.length||'—'}</td><td class="td-dim">${p.width||'—'}</td>
-      <td class="td-dim">${p.height||'—'}</td><td class="td-dim hide-xs">${vol>0?vol.toLocaleString():'—'}</td>
-      <td><button onclick="openBoxSizeModal('${p.sku}')" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:14px;padding:2px 4px" title="แก้ไขไซส์กล่อง">✏️</button></td>
-    </tr>`;}).join('');
-  updateDeleteToolbar();
-  const ca=document.getElementById('check-all');
-  if(ca){const all=filtered.length>0&&filtered.every(p=>selectedSKUs.has(p.sku));const some=filtered.some(p=>selectedSKUs.has(p.sku));ca.checked=all;ca.indeterminate=!all&&some;}
-}
-function toggleSKU(sku,cb){cb.checked?selectedSKUs.add(sku):selectedSKUs.delete(sku);renderProducts();}
-function toggleAll(cb){
-  const q=(document.getElementById('product-search')?.value||'').toLowerCase();
-  products.filter(p=>p.sku.toLowerCase().includes(q)||p.name.toLowerCase().includes(q)).forEach(p=>cb.checked?selectedSKUs.add(p.sku):selectedSKUs.delete(p.sku));
-  renderProducts();
-}
-function updateDeleteToolbar(){
-  const bar=document.getElementById('delete-toolbar');
-  bar.classList.toggle('show',selectedSKUs.size>0);
-  if(selectedSKUs.size>0)document.getElementById('selected-count').textContent=`เลือก ${selectedSKUs.size} รายการ`;
-}
-function clearSelection(){selectedSKUs.clear();renderProducts();}
-function deleteSelected(){
-  if(!selectedSKUs.size)return;
-  if(!confirm(`🗑 ลบ ${selectedSKUs.size} รายการ?`))return;
-  products=products.filter(p=>!selectedSKUs.has(p.sku));
-  selectedSKUs.clear();toast('✓ ลบสำเร็จ');saveProducts();renderProducts();
-}
-
-// ===== DASHBOARD =====
-function renderDashboard(){
-  const urgent=picklist.filter(i=>i.type==='urgent').length;
-  document.getElementById('stat-pending').textContent=picklist.length;
-  document.getElementById('stat-urgent').textContent=urgent;
-  document.getElementById('stat-done').textContent=history.length;
-
-  // Chart range filter
-  const rangeEl=document.getElementById('chart-range');
-  const days=rangeEl?parseInt(rangeEl.value):30;
-  const cutoff=days>0?new Date(Date.now()-days*86400000):new Date(0);
-  const filtered=history.filter(i=>new Date(i.doneTime||i.time)>=cutoff);
-
-  // Aggregate by SKU
-  const skuMap={};
-  filtered.forEach(i=>{
-    const k=i.sku;
-    skuMap[k]=(skuMap[k]||0)+i.qty;
-  });
-  const top=Object.entries(skuMap).sort((a,b)=>b[1]-a[1]).slice(0,8);
-  const maxVal=top.length?top[0][1]:1;
-
-  const chartEl=document.getElementById('top-sku-chart');
-  if(chartEl){
-    if(!top.length){chartEl.innerHTML='<div style="font-size:13px;color:var(--text3);padding:8px 0;text-align:center">ยังไม่มีข้อมูล</div>';}
-    else{
-      chartEl.innerHTML=top.map(([sku,qty])=>{
-        const pct=Math.round(qty/maxVal*100);
-        return`<div style="margin-bottom:10px">
-          <div style="display:flex;justify-content:space-between;margin-bottom:4px">
-            <span style="font-family:var(--mono);font-size:12px;color:var(--accent)">${sku}</span>
-            <span style="font-family:var(--mono);font-size:12px;color:var(--text2);font-weight:600">${qty}</span>
-          </div>
-          <div style="height:8px;background:var(--surface2);border-radius:4px;overflow:hidden">
-            <div style="height:100%;width:${pct}%;background:linear-gradient(90deg,var(--accent),#7cb3ff);border-radius:4px;transition:width .4s ease"></div>
-          </div>
-        </div>`;}).join('');
-    }
+// ===================== STOCK COUNT =====================
+function renderStockList() {
+  const c = document.getElementById('stock-list-container');
+  const q = (document.getElementById('stock-search').value || '').toLowerCase();
+  const list = products.filter(p =>
+    p.sku.toLowerCase().includes(q) || p.name.toLowerCase().includes(q)
+  );
+  if (list.length === 0) {
+    c.innerHTML = `<div class="empty"><div class="empty-icon">📊</div>ไม่พบสินค้า</div>`;
+    return;
   }
-
-  // Urgent list
-  const urgentEl=document.getElementById('dash-urgent-list');
-  const urgentItems=picklist.filter(i=>i.type==='urgent');
-  urgentEl.innerHTML=urgentItems.length
-    ?urgentItems.map(i=>`<div class="recent-item"><span class="ri-dot urgent"></span><span style="font-family:var(--mono);font-size:12px;color:var(--accent);flex:1">${i.sku}</span><span style="font-family:var(--mono);font-size:12px;color:var(--text3)">×${i.qty}</span></div>`).join('')
-    :'<div style="font-size:13px;color:var(--text3);padding:8px 0">ไม่มีรายการด่วน 🎉</div>';
-
-  // Recent 5
-  const recentEl=document.getElementById('dash-recent-list');
-  const recent=history.slice(0,5);
-  recentEl.innerHTML=recent.length
-    ?recent.map(i=>`<div class="recent-item"><span class="ri-dot normal"></span><span style="font-family:var(--mono);font-size:12px;color:var(--accent);flex:1">${i.sku}</span><span style="font-size:11px;color:var(--text3);font-family:var(--mono);margin-left:8px">×${i.qty}</span><span style="font-size:11px;color:var(--text3);font-family:var(--mono);margin-left:8px">${fmtTime(i.doneTime)}</span></div>`).join('')
-    :'<div style="font-size:13px;color:var(--text3);padding:8px 0">ยังไม่มีประวัติ</div>';
-}
-
-// ===== HISTORY MODAL =====
-function openHistoryModal(){
-  document.getElementById('history-search').value='';
-  renderHistoryModal();
-  document.getElementById('modal-history').classList.add('open');
-}
-function closeHistoryModal(){
-  document.getElementById('modal-history').classList.remove('open');
-}
-function renderHistoryModal(){
-  const q=(document.getElementById('history-search')?.value||'').toLowerCase();
-  const filtered=history.filter(i=>i.sku.toLowerCase().includes(q));
-  const el=document.getElementById('history-modal-list');
-  if(!filtered.length){el.innerHTML='<div style="text-align:center;color:var(--text3);padding:24px;font-size:13px">ไม่พบรายการ</div>';return;}
-  el.innerHTML=filtered.map(i=>`
-    <div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--border)">
-      <span style="font-family:var(--mono);font-size:12px;color:var(--accent);flex:1">${i.sku}</span>
-      <span class="badge ${i.type}">${i.type==='urgent'?'⚡':'🔄'}</span>
-      <span style="font-family:var(--mono);font-size:12px;color:var(--text2)">×${i.qty}</span>
-      <span style="font-size:11px;color:var(--text3);font-family:var(--mono)">${fmtTime(i.doneTime)}</span>
-    </div>`).join('');
-}
-
-// ===== BOX SIZE MODAL =====
-let boxSizeTargetSku = null;
-
-function openBoxSizeModal(sku) {
-  const p = products.find(x => x.sku === sku);
-  if (!p) return;
-  boxSizeTargetSku = sku;
-  document.getElementById('boxsize-sku-label').textContent = sku + ' — ' + p.name;
-  document.getElementById('bs-length').value = p.length || '';
-  document.getElementById('bs-width').value = p.width || '';
-  document.getElementById('bs-height').value = p.height || '';
-
-  // Find similar SKUs by shared prefix
-  const similar = findSimilarSKUs(sku);
-  const section = document.getElementById('similar-skus-section');
-  const list = document.getElementById('similar-skus-list');
-  if (similar.length > 0) {
-    section.style.display = 'block';
-    list.innerHTML = similar.map(sp => {
-      const vol = sp.length * sp.width * sp.height;
-      return `<div class="sku-check-item checked" id="sku-check-wrap-${sp.sku.replace(/[^a-zA-Z0-9]/g,'_')}" onclick="toggleSkuCheck('${sp.sku}')">
-        <input type="checkbox" checked id="sku-check-${sp.sku.replace(/[^a-zA-Z0-9]/g,'_')}" onclick="event.stopPropagation();toggleSkuCheck('${sp.sku}')">
-        <div class="sku-check-label">
-          <div class="sku-check-code">${sp.sku}</div>
-          <div class="sku-check-name">${sp.name} · ${sp.length||'?'}×${sp.width||'?'}×${sp.height||'?'} cm</div>
+  c.innerHTML = list.map(p => {
+    const sd = stockData[p.sku] || {actual:0, box:0};
+    const total = sd.actual + (sd.box * 12);
+    const max = Math.max(total, 100);
+    const pct = Math.min(100, Math.round((total/max)*100));
+    const cls = pct < 20 ? 'low' : pct < 50 ? 'mid' : 'ok';
+    return `<div class="stock-item">
+      <div class="stock-item-top">
+        <div>
+          <div class="stock-sku">${p.sku}</div>
+          <div class="stock-name">${p.name}</div>
         </div>
-      </div>`;
-    }).join('');
-  } else {
-    section.style.display = 'none';
+        <div style="text-align:right">
+          <div class="stock-ratio ${cls}">${total}</div>
+          <div class="stock-ratio-lbl">ชิ้นรวม</div>
+        </div>
+      </div>
+      <div class="stock-bar"><div class="stock-bar-fill ${cls}" style="width:${pct}%"></div></div>
+      <div class="stock-inputs">
+        <div class="stock-input-wrap">
+          <label>คลัง A (ชิ้น)</label>
+          <input type="number" value="${sd.actual}" min="0"
+            oninput="updateStock('${p.sku}','actual',this.value)">
+        </div>
+        <div class="stock-input-wrap">
+          <label>โกดัง B (ลัง)</label>
+          <input type="number" value="${sd.box}" min="0"
+            oninput="updateStock('${p.sku}','box',this.value)">
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function updateStock(sku, field, val) {
+  if (!stockData[sku]) stockData[sku] = {actual:0, box:0};
+  stockData[sku][field] = parseInt(val) || 0;
+}
+
+function saveStockCount() {
+  saveStock();
+  showToast('💾 บันทึกสต็อกแล้ว');
+}
+
+// ===================== PRODUCTS =====================
+let selectedProductSKUs = new Set();
+let importMode = 'csv';
+
+function setImportMode(mode) {
+  importMode = mode;
+  document.getElementById('import-mode-csv').classList.toggle('active', mode==='csv');
+  document.getElementById('import-mode-manual').classList.toggle('active', mode==='manual');
+  document.getElementById('import-csv-area').style.display = mode==='csv' ? '' : 'none';
+  document.getElementById('import-manual-area').style.display = mode==='manual' ? '' : 'none';
+}
+
+function renderProductTable() {
+  const q = (document.getElementById('prod-search').value || '').toLowerCase();
+  const filtered = products.filter(p =>
+    p.sku.toLowerCase().includes(q) || p.name.toLowerCase().includes(q)
+  );
+  const tbody = document.getElementById('products-tbody');
+  if (filtered.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;color:var(--text3);padding:24px">ไม่พบสินค้า</td></tr>`;
+    return;
   }
-  document.getElementById('modal-boxsize').classList.add('open');
+  tbody.innerHTML = filtered.map(p => {
+    const vol = (p.w*p.l*p.h).toLocaleString();
+    const sel = selectedProductSKUs.has(p.sku);
+    return `<tr>
+      <td><input type="checkbox" ${sel?'checked':''} onchange="toggleProductSelect('${p.sku}',this.checked)" style="accent-color:var(--accent);cursor:pointer"></td>
+      <td class="td-sku">${p.sku}</td>
+      <td style="font-size:13px">${p.name}</td>
+      <td class="td-dim hide-xs">${p.w}×${p.l}×${p.h}</td>
+      <td class="td-dim hide-xs">${vol}</td>
+      <td><button class="btn-sm" onclick="deleteProduct('${p.sku}')" style="color:var(--urgent);border-color:var(--urgent)">🗑</button></td>
+    </tr>`;
+  }).join('');
+  updateDeleteBar();
 }
 
-function findSimilarSKUs(sku) {
-  // Find common prefix: strip last segment separated by - or last color/variant suffix
-  const parts = sku.split('-');
-  if (parts.length < 2) return [];
-  // Try prefix = all parts except last
-  const prefix = parts.slice(0, -1).join('-');
-  return products.filter(p => p.sku !== sku && p.sku.startsWith(prefix + '-'));
+function toggleProductSelect(sku, checked) {
+  if (checked) selectedProductSKUs.add(sku);
+  else selectedProductSKUs.delete(sku);
+  updateDeleteBar();
 }
-
-function toggleSkuCheck(sku) {
-  const safeId = sku.replace(/[^a-zA-Z0-9]/g, '_');
-  const cb = document.getElementById('sku-check-' + safeId);
-  const wrap = document.getElementById('sku-check-wrap-' + safeId);
-  if (!cb) return;
-  cb.checked = !cb.checked;
-  wrap.classList.toggle('checked', cb.checked);
+function toggleSelectAllProducts() {
+  const cb = document.getElementById('select-all-prod');
+  products.forEach(p => { if(cb.checked) selectedProductSKUs.add(p.sku); else selectedProductSKUs.delete(p.sku); });
+  renderProductTable();
 }
-
-function saveBoxSize() {
-  const length = parseFloat(document.getElementById('bs-length').value) || 0;
-  const width  = parseFloat(document.getElementById('bs-width').value)  || 0;
-  const height = parseFloat(document.getElementById('bs-height').value) || 0;
-
-  // Apply to target SKU
-  const idx = products.findIndex(p => p.sku === boxSizeTargetSku);
-  if (idx >= 0) { products[idx] = {...products[idx], length, width, height}; }
-
-  // Apply to checked similar SKUs
-  const similar = findSimilarSKUs(boxSizeTargetSku);
-  let appliedCount = 0;
-  similar.forEach(sp => {
-    const safeId = sp.sku.replace(/[^a-zA-Z0-9]/g, '_');
-    const cb = document.getElementById('sku-check-' + safeId);
-    if (cb && cb.checked) {
-      const i = products.findIndex(p => p.sku === sp.sku);
-      if (i >= 0) { products[i] = {...products[i], length, width, height}; appliedCount++; }
-    }
-  });
-
+function updateDeleteBar() {
+  const bar = document.getElementById('delete-bar');
+  if (selectedProductSKUs.size > 0) {
+    bar.classList.add('show');
+    document.getElementById('del-count-label').textContent = `เลือก ${selectedProductSKUs.size} รายการ`;
+  } else {
+    bar.classList.remove('show');
+  }
+}
+function deleteProduct(sku) {
+  products = products.filter(p => p.sku !== sku);
   saveProducts();
-  renderProducts();
-  closeBoxSizeModal();
-  toast(`✓ บันทึกไซส์กล่อง${appliedCount > 0 ? ` (รวม ${appliedCount} SKU ใกล้เคียง)` : ''}`);
+  renderProductTable();
+  showToast('🗑 ลบสินค้าแล้ว');
+}
+function deleteSelectedProducts() {
+  products = products.filter(p => !selectedProductSKUs.has(p.sku));
+  selectedProductSKUs.clear();
+  saveProducts();
+  renderProductTable();
+  showToast('🗑 ลบสินค้าที่เลือกแล้ว');
 }
 
-function closeBoxSizeModal() {
-  document.getElementById('modal-boxsize').classList.remove('open');
-  boxSizeTargetSku = null;
+function openAddProductModal() {
+  document.getElementById('new-sku').value = '';
+  document.getElementById('new-name').value = '';
+  document.getElementById('new-w').value = '';
+  document.getElementById('new-l').value = '';
+  document.getElementById('new-h').value = '';
+  openModal('modal-add-product');
+}
+function saveNewProduct() {
+  const sku  = document.getElementById('new-sku').value.trim().toUpperCase();
+  const name = document.getElementById('new-name').value.trim();
+  const w = parseFloat(document.getElementById('new-w').value) || 0;
+  const l = parseFloat(document.getElementById('new-l').value) || 0;
+  const h = parseFloat(document.getElementById('new-h').value) || 0;
+  if (!sku || !name) { showToast('⚠️ กรุณากรอก SKU และชื่อ'); return; }
+  if (products.find(p => p.sku === sku)) { showToast('⚠️ SKU นี้มีอยู่แล้ว'); return; }
+  products.push({sku, name, w, l, h});
+  saveProducts();
+  closeModal('modal-add-product');
+  renderProductTable();
+  showToast(`✅ เพิ่ม ${sku} แล้ว`);
 }
 
-// ===== UTILS =====
-function showLoading(show){document.getElementById('loading-overlay').style.display=show?'flex':'none';}
-function fmtTime(d){return d?d.toLocaleString('th-TH',{hour:'2-digit',minute:'2-digit',day:'numeric',month:'short'}):''}
-function toast(msg){const t=document.getElementById('toast');t.textContent=msg;t.style.display='block';setTimeout(()=>t.style.display='none',2500);}
+function importCSV(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    parseAndImportCSV(e.target.result);
+    event.target.value = '';
+  };
+  reader.readAsText(file);
+}
+function importManualCSV() {
+  const text = document.getElementById('manual-csv').value;
+  parseAndImportCSV(text);
+}
+function parseAndImportCSV(text) {
+  const lines = text.split('\n').filter(l => l.trim());
+  let added = 0, skipped = 0;
+  lines.forEach(line => {
+    const parts = line.split(',').map(s => s.trim());
+    if (parts.length < 2) return;
+    const sku  = parts[0].toUpperCase();
+    const name = parts[1];
+    const w = parseFloat(parts[2]) || 0;
+    const l = parseFloat(parts[3]) || 0;
+    const h = parseFloat(parts[4]) || 0;
+    if (!sku || !name) return;
+    if (products.find(p => p.sku === sku)) { skipped++; return; }
+    products.push({sku, name, w, l, h});
+    added++;
+  });
+  saveProducts();
+  renderProductTable();
+  showToast(`✅ นำเข้า ${added} รายการ (ข้าม ${skipped})`);
+}
+
+// ===================== SCANNER (placeholder) =====================
+let scannerStream = null;
+function toggleScanner() {
+  const wrap = document.getElementById('scanner-wrap');
+  if (wrap.style.display === 'block') { stopScanner(); return; }
+  showToast('📷 ฟีเจอร์สแกนกล้องต้องใช้ HTTPS');
+  // In production: use ZXing or QuaggaJS
+}
+function stopScanner() {
+  document.getElementById('scanner-wrap').style.display = 'none';
+  if (scannerStream) { scannerStream.getTracks().forEach(t => t.stop()); scannerStream = null; }
+  document.getElementById('scan-label').textContent = 'แตะเพื่อเปิดกล้องสแกน';
+}
+
+// ===================== INIT =====================
+updatePip();
 </script>
 </body>
 </html>
