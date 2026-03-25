@@ -782,32 +782,50 @@ function attachPickEvents(){
   document.querySelectorAll('[id^="pick-card-"]').forEach(card=>{
     const id=parseInt(card.id.replace('pick-card-',''));
     let moved=false;
-    let longPressFired=false; // flag: long press just fired this touch
+    let longPressFired=false;
+    let startX=0, startY=0;
 
     card.addEventListener('touchstart', e=>{
       if(e.target.closest('button'))return;
       moved=false;
       longPressFired=false;
+      startX=e.touches[0].clientX;
+      startY=e.touches[0].clientY;
+      // Visual feedback: slight scale down
+      card.style.transform='scale(0.98)';
+      card.style.transition='transform 0.1s';
       _lpTimer=setTimeout(()=>{
         if(!moved){
           longPressFired=true;
+          card.style.transform='';
           startPickSelect(id);
-          navigator.vibrate&&navigator.vibrate(40);
+          navigator.vibrate&&navigator.vibrate(50);
         }
-      },500);
+      },350);
     },{passive:true});
 
-    card.addEventListener('touchmove', ()=>{
-      moved=true;
-      clearTimeout(_lpTimer);
+    card.addEventListener('touchmove', e=>{
+      const dx=Math.abs(e.touches[0].clientX-startX);
+      const dy=Math.abs(e.touches[0].clientY-startY);
+      if(dx>8||dy>8){
+        moved=true;
+        clearTimeout(_lpTimer);
+        card.style.transform='';
+      }
     },{passive:true});
 
     card.addEventListener('touchend', e=>{
       clearTimeout(_lpTimer);
+      card.style.transform='';
       if(e.target.closest('button'))return;
-      // ถ้า long press เพิ่ง fire ใน touchend นี้ — ข้ามไป ไม่ toggle
       if(longPressFired){ longPressFired=false; return; }
       if(!moved && pickSelectMode) togglePickSelect(id);
+    });
+
+    card.addEventListener('touchcancel', ()=>{
+      clearTimeout(_lpTimer);
+      card.style.transform='';
+      longPressFired=false;
     });
 
     // Desktop
@@ -820,7 +838,7 @@ function attachPickEvents(){
           longPressFired=true;
           startPickSelect(id);
         }
-      },500);
+      },350);
     });
     card.addEventListener('mousemove', ()=>{ moved=true; });
     card.addEventListener('mouseup', e=>{
@@ -829,6 +847,7 @@ function attachPickEvents(){
       if(longPressFired){ longPressFired=false; return; }
       if(!moved && pickSelectMode) togglePickSelect(id);
     });
+    card.addEventListener('mouseleave', ()=>{ clearTimeout(_lpTimer); });
   });
 }
 
