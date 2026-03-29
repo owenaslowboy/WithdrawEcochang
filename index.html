@@ -278,11 +278,42 @@ tr:hover td{background:var(--surface2);}
   <div id="page-picklist" class="page">
     <div class="container">
       <div class="ph"><h1>Pick List</h1><p>รายการรอเบิก — กดค้างเพื่อเลือกหลายรายการ</p></div>
-      <div class="sort-bar">
-        <button class="sort-chip active" id="sort-vol" onclick="sortList('volume')">📦 Volume ↓</button>
-        <button class="sort-chip" id="sort-type" onclick="sortList('type')">⚡ ด่วนก่อน</button>
-        <button class="sort-chip" id="sort-sku" onclick="sortList('sku')">🔤 SKU</button>
-        <button class="sort-chip" id="sort-time" onclick="sortList('time')">🕐 เวลา</button>
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
+        <button onclick="toggleSortPanel()" id="sort-trigger" style="display:flex;align-items:center;gap:6px;background:var(--surface2);border:1px solid var(--border2);color:var(--text2);border-radius:8px;padding:7px 12px;font-size:12px;cursor:pointer;font-family:var(--sans)">
+          <span>⇅</span><span id="sort-trigger-label">จัดเรียง</span>
+        </button>
+        <div id="sort-tags" style="display:flex;gap:6px;flex:1;overflow-x:auto;padding-bottom:2px"></div>
+      </div>
+      <div id="sort-panel" style="display:none;background:var(--surface);border:1px solid var(--border2);border-radius:var(--r);margin-bottom:12px;overflow:hidden">
+        <div style="padding:10px 14px;border-bottom:1px solid var(--border);font-size:11px;color:var(--text3);font-weight:600;letter-spacing:.08em;text-transform:uppercase">จัดเรียงตาม</div>
+        <!-- primary row -->
+        <div style="padding:10px 14px;display:flex;align-items:center;gap:10px;border-bottom:1px solid var(--border)">
+          <span style="font-size:12px;color:var(--text3);width:52px;flex-shrink:0">หลัก</span>
+          <select id="sort-primary-key" onchange="onSortChange()" style="flex:1;background:var(--surface2);border:1px solid var(--border2);color:var(--text);border-radius:6px;padding:7px 10px;font-size:13px;font-family:var(--sans);outline:none">
+            <option value="volume">📦 Volume</option>
+            <option value="type">⚡ ประเภท</option>
+            <option value="sku">🔤 SKU</option>
+            <option value="time">🕐 เวลา</option>
+          </select>
+          <select id="sort-primary-dir" onchange="onSortChange()" style="background:var(--surface2);border:1px solid var(--border2);color:var(--text);border-radius:6px;padding:7px 10px;font-size:13px;font-family:var(--sans);outline:none;width:110px">
+            <option value="-1">มากไปน้อย</option>
+            <option value="1">น้อยไปมาก</option>
+          </select>
+        </div>
+        <!-- secondary row -->
+        <div style="padding:10px 14px;display:flex;align-items:center;gap:10px">
+          <span style="font-size:12px;color:var(--text3);width:52px;flex-shrink:0">รอง</span>
+          <select id="sort-secondary-key" onchange="onSortChange()" style="flex:1;background:var(--surface2);border:1px solid var(--border2);color:var(--text);border-radius:6px;padding:7px 10px;font-size:13px;font-family:var(--sans);outline:none">
+            <option value="type">⚡ ประเภท</option>
+            <option value="volume">📦 Volume</option>
+            <option value="sku">🔤 SKU</option>
+            <option value="time">🕐 เวลา</option>
+          </select>
+          <select id="sort-secondary-dir" onchange="onSortChange()" style="background:var(--surface2);border:1px solid var(--border2);color:var(--text);border-radius:6px;padding:7px 10px;font-size:13px;font-family:var(--sans);outline:none;width:110px">
+            <option value="1">ด่วนก่อน</option>
+            <option value="-1">ปกติก่อน</option>
+          </select>
+        </div>
       </div>
       <div class="pick-toolbar" id="pick-toolbar">
         <span style="font-size:13px;color:#f87171;font-weight:500;flex:1" id="pick-sel-count"></span>
@@ -322,7 +353,10 @@ tr:hover td{background:var(--surface2);}
       <div id="stock-add-area" class="card" style="margin-bottom:10px">
         <div class="card-label">➕ เพิ่ม SKU เข้าระบบนับ</div>
         <div style="display:flex;gap:8px">
-          <input type="text" id="stock-sku-input" placeholder="SKU หรือสแกน..." style="flex:1">
+          <div class="dropdown-wrap" style="flex:1">
+            <input type="text" id="stock-sku-input" placeholder="SKU หรือสแกน..." oninput="filterStockSKU()" onblur="closeStockDropdown()">
+            <div class="dropdown-list" id="stock-sku-dropdown"></div>
+          </div>
           <button class="btn-sm btn-primary" style="background:var(--accent);color:#fff;border:none" onclick="addStockItem()">เพิ่ม</button>
         </div>
       </div>
@@ -570,7 +604,7 @@ HISTORY_DOC.onSnapshot(s=>{if(s.exists){history=fromSafe(s.data().items||[]);ren
 STOCK_DOC.onSnapshot(s=>{if(s.exists){stockData=s.data().data||{};renderStockList();}});
 loadFromFirestore();
 
-function renderAll(){renderProducts();renderPickList();renderHistory();renderDashboard();renderStockList();updatePip();}
+function renderAll(){renderProducts();renderPickList();renderHistory();renderDashboard();renderStockList();updatePip();updateSortTags();}
 
 // ===== NAV =====
 const PAGE_TITLES={checkout:'Checkout',picklist:'Pick List',history:'History',products:'Products',dashboard:'Dashboard',stock:'นับสต็อก'};
@@ -669,28 +703,57 @@ function addToPickList(){
   selectedSKU=null;checkoutType='normal';setType('normal');
   savePicklist();updatePip();
 }
-
-// ===== PICKLIST SORT =====
-// Sort: primary key + secondary key
-// sortPrimary & sortSecondary declared above
-// dir: -1=desc, 1=asc per key
+// ===== PICKLIST SORT (Notion-style) =====
 const sortDirMap={volume:-1,sku:1,time:-1,type:1};
+let sortPanelOpen=false;
 
-function sortList(key){
-  if(sortPrimary===key){
-    // Toggle direction of primary
-    sortDirMap[key]*=-1;
-  } else if(sortSecondary===key){
-    // Promote secondary to primary, old primary becomes secondary
-    sortSecondary=sortPrimary;
-    sortPrimary=key;
-  } else {
-    // New key: secondary becomes old primary, new key is primary
-    sortSecondary=sortPrimary;
-    sortPrimary=key;
-  }
-  updateSortChips();
+const SORT_LABELS={volume:'📦 Volume',type:'⚡ ประเภท',sku:'🔤 SKU',time:'🕐 เวลา'};
+const SORT_DIR_LABELS={
+  volume:{'-1':'มากไปน้อย','1':'น้อยไปมาก'},
+  type:{'-1':'ปกติก่อน','1':'ด่วนก่อน'},
+  sku:{'-1':'Z→A','1':'A→Z'},
+  time:{'-1':'ใหม่ก่อน','1':'เก่าก่อน'},
+};
+
+function toggleSortPanel(){
+  sortPanelOpen=!sortPanelOpen;
+  const panel=document.getElementById('sort-panel');
+  const btn=document.getElementById('sort-trigger');
+  if(panel) panel.style.display=sortPanelOpen?'block':'none';
+  if(btn){btn.style.borderColor=sortPanelOpen?'var(--accent)':'var(--border2)';btn.style.color=sortPanelOpen?'var(--accent)':'var(--text2)';}
+  if(sortPanelOpen) syncSortSelects();
+}
+
+function syncSortSelects(){
+  const pk=document.getElementById('sort-primary-key');
+  const pd=document.getElementById('sort-primary-dir');
+  const sk=document.getElementById('sort-secondary-key');
+  const sd=document.getElementById('sort-secondary-dir');
+  if(pk) pk.value=sortPrimary;
+  if(pd) pd.value=String(sortDirMap[sortPrimary]);
+  if(sk) sk.value=sortSecondary;
+  if(sd) sd.value=String(sortDirMap[sortSecondary]);
+}
+
+function onSortChange(){
+  const pk=document.getElementById('sort-primary-key')?.value||'volume';
+  const pd=parseInt(document.getElementById('sort-primary-dir')?.value||'-1');
+  const sk=document.getElementById('sort-secondary-key')?.value||'type';
+  const sd=parseInt(document.getElementById('sort-secondary-dir')?.value||'1');
+  sortPrimary=pk; sortDirMap[pk]=pd;
+  sortSecondary=sk; sortDirMap[sk]=sd;
+  updateSortTags();
   renderPickList();
+}
+
+function updateSortTags(){
+  const tags=document.getElementById('sort-tags');
+  if(!tags) return;
+  const pDir=SORT_DIR_LABELS[sortPrimary]?.[String(sortDirMap[sortPrimary])]||'';
+  const sDir=SORT_DIR_LABELS[sortSecondary]?.[String(sortDirMap[sortSecondary])]||'';
+  tags.innerHTML=`
+    <span style="background:var(--accent-dim);border:1px solid var(--accent);color:var(--accent);border-radius:20px;padding:4px 10px;font-size:11px;white-space:nowrap;flex-shrink:0">${SORT_LABELS[sortPrimary]} ${pDir}</span>
+    <span style="background:var(--surface2);border:1px solid var(--border2);color:var(--text3);border-radius:20px;padding:4px 10px;font-size:11px;white-space:nowrap;flex-shrink:0">${SORT_LABELS[sortSecondary]} ${sDir}</span>`;
 }
 
 function cmpByKey(a,b,key){
@@ -698,10 +761,7 @@ function cmpByKey(a,b,key){
   if(key==='volume') return d===-1?(b.volume-a.volume):(a.volume-b.volume);
   if(key==='sku')    return d===1?a.sku.localeCompare(b.sku):b.sku.localeCompare(a.sku);
   if(key==='time')   return d===-1?(b.time-a.time):(a.time-b.time);
-  if(key==='type'){
-    const ua=a.type==='urgent'?0:1, ub=b.type==='urgent'?0:1;
-    return d===1?(ua-ub):(ub-ua);
-  }
+  if(key==='type'){const ua=a.type==='urgent'?0:1,ub=b.type==='urgent'?0:1;return d===1?(ua-ub):(ub-ua);}
   return 0;
 }
 
@@ -713,31 +773,6 @@ function getSorted(){
   });
 }
 
-function updateSortChips(){
-  const labels={
-    volume:'📦 Volume',
-    type:'⚡ ด่วน',
-    sku:'🔤 SKU',
-    time:'🕐 เวลา',
-  };
-  const arrows={
-    volume:sortDirMap.volume===-1?' ↓':' ↑',
-    sku:sortDirMap.sku===1?' A↑':' Z↑',
-    time:sortDirMap.time===-1?' ใหม่':' เก่า',
-    type:sortDirMap.type===1?' ด่วน↑':' ปกติ↑',
-  };
-  ['volume','type','sku','time'].forEach(key=>{
-    const elId='sort-'+(key==='volume'?'vol':key);
-    const el=document.getElementById(elId);
-    if(!el) return;
-    const isPrimary=sortPrimary===key;
-    const isSecondary=sortSecondary===key;
-    el.textContent=labels[key]+(isPrimary?arrows[key]:isSecondary?' 2':'');
-    el.classList.toggle('active',isPrimary);
-    el.style.opacity=isSecondary?'0.7':'1';
-    el.style.borderStyle=isSecondary?'dashed':'solid';
-  });
-}
 
 // ===== PICK MULTISELECT =====
 function startPickSelect(id){
@@ -983,6 +1018,28 @@ function renderHistory(){
 
 // ===== STOCK COUNT =====
 
+
+function filterStockSKU(){
+  const val=document.getElementById('stock-sku-input').value.toLowerCase();
+  const dd=document.getElementById('stock-sku-dropdown');
+  if(!val){dd.classList.remove('open');return;}
+  const filtered=products.filter(p=>
+    (p.sku.toLowerCase().includes(val)||p.name.toLowerCase().includes(val)) && !stockData[p.sku]
+  );
+  if(!filtered.length){dd.classList.remove('open');return;}
+  dd.innerHTML=filtered.slice(0,8).map(p=>`
+    <div class="dd-item" onmousedown="selectStockSKU('${p.sku}')">
+      <div><span class="dd-sku">${p.sku}</span><div class="dd-name">${p.name}</div></div>
+    </div>`).join('');
+  dd.classList.add('open');
+}
+function selectStockSKU(sku){
+  document.getElementById('stock-sku-input').value=sku;
+  document.getElementById('stock-sku-dropdown').classList.remove('open');
+}
+function closeStockDropdown(){
+  setTimeout(()=>document.getElementById('stock-sku-dropdown').classList.remove('open'),200);
+}
 
 function addStockItem(){
   const sku=document.getElementById('stock-sku-input').value.trim();
